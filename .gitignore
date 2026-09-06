@@ -1,0 +1,17 @@
+# DB 접속정보/JWT 비밀키가 들어있는 실제 설정 파일 (application-example.yml을 복사해서 각자 만들 것)
+backend/src/main/resources/application.yml
+
+# Maven 빌드 산출물
+backend/target/
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 로그
+*.log
