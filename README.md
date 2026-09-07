@@ -383,7 +383,7 @@ DB 저장
 
 ---
 
-## 🧠 2. Backend + AI/RAG — 핵심 면접 엔진 담당 ⭐
+## 🧠 2. Backend + AI/RAG
 
 ### 핵심 역할
 
