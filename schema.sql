@@ -15,6 +15,10 @@ CREATE TABLE projects (
   user_id BIGINT NOT NULL,
   title VARCHAR(255) NOT NULL,
   description TEXT,
+  tech_stack TEXT,
+  role TEXT,
+  main_features TEXT,
+  problem_solving TEXT,
   structured_info JSON,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_projects_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
