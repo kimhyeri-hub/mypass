@@ -108,6 +108,19 @@ public class ProjectService {
         return ProjectResponse.from(project, getFileResponses(project.getProjectId()));
     }
 
+    public ProjectFileDownload downloadFile(String userEmail, Long projectId, Long fileId) {
+        User user = getUser(userEmail);
+        Project project = getOwnedProject(user, projectId);
+
+        ProjectFile file = projectFileRepository.findById(fileId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "파일을 찾을 수 없습니다."));
+        if (!file.getProjectId().equals(project.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "해당 프로젝트의 파일이 아닙니다.");
+        }
+
+        return new ProjectFileDownload(fileStorageService.load(file.getS3Key()), file);
+    }
+
     @Transactional
     public void deleteProject(String userEmail, Long projectId) {
         User user = getUser(userEmail);

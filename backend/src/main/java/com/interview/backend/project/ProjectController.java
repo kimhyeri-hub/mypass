@@ -2,6 +2,9 @@ package com.interview.backend.project;
 
 import com.interview.backend.project.dto.ProjectResponse;
 import com.interview.backend.project.dto.UpdateProjectRequest;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -67,5 +70,26 @@ public class ProjectController {
     public ResponseEntity<Void> deleteProject(Authentication authentication, @PathVariable Long projectId) {
         projectService.deleteProject(authentication.getName(), projectId);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{projectId}/files/{fileId}/download")
+    public ResponseEntity<Resource> downloadFile(
+            Authentication authentication,
+            @PathVariable Long projectId,
+            @PathVariable Long fileId
+    ) {
+        ProjectFileDownload download = projectService.downloadFile(authentication.getName(), projectId, fileId);
+
+        MediaType contentType;
+        try {
+            contentType = MediaType.parseMediaType(download.file().getFileType());
+        } catch (Exception e) {
+            contentType = MediaType.APPLICATION_OCTET_STREAM;
+        }
+
+        return ResponseEntity.ok()
+                .contentType(contentType)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + download.file().getOriginalName() + "\"")
+                .body(download.resource());
     }
 }
