@@ -14,6 +14,7 @@ CREATE TABLE projects (
   project_id BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT NOT NULL,
   title VARCHAR(255) NOT NULL,
+  job_position VARCHAR(255),
   description TEXT,
   structured_info JSON,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
