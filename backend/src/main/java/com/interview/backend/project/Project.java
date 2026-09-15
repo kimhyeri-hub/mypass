@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Lob;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
@@ -27,6 +28,10 @@ public class Project {
 
     @Column(name = "job_position")
     private String jobPosition;
+
+    @Lob
+    @Column(name = "parsed_text")
+    private String parsedText;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -59,6 +64,14 @@ public class Project {
 
     public String getJobPosition() {
         return jobPosition;
+    }
+
+    public String getParsedText() {
+        return parsedText;
+    }
+
+    public void setParsedText(String parsedText) {
+        this.parsedText = parsedText;
     }
 
     public LocalDateTime getCreatedAt() {

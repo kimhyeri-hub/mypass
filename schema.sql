@@ -16,6 +16,7 @@ CREATE TABLE projects (
   title VARCHAR(255) NOT NULL,
   job_position VARCHAR(255),
   description TEXT,
+  parsed_text LONGTEXT,
   structured_info JSON,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_projects_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE

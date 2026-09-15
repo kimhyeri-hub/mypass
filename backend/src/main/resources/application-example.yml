@@ -19,3 +19,6 @@ app:
   jwt:
     secret: "local-dev-only-change-this-secret-key-please-32bytes-min"
     expiration-ms: 86400000
+  openai:
+    api-key: "여기에_본인_OpenAI_API_키"
+    model: "gpt-4o-mini"
