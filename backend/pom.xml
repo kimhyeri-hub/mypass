@@ -94,16 +94,52 @@
             <version>2.5.0</version>
         </dependency>
 
-        <!-- LangChain4j (AI 면접 질문 생성용) -->
+        <!-- LangChain4j (AI 면접 질문 생성용 - OpenAI Provider) -->
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-open-ai</artifactId>
             <version>1.0.0</version>
         </dependency>
+
+        <!-- AWS SDK Bedrock Runtime (AI 면접 질문 생성용 - Bedrock Provider) -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>bedrockruntime</artifactId>
+            <version>2.46.7</version>
+        </dependency>
+
+        <!-- bedrockruntime이 transitively 끌어오는 apache5-client가 httpclient5 5.2.3을
+             지정하는데, 5.2.3에는 그 apache5-client가 실제로 쓰는 TlsSocketStrategy가
+             없어서(5.3+에 추가됨) 런타임에 ClassNotFoundException이 난다. 직접 버전을
+             올려서 덮어쓴다. -->
+        <dependency>
+            <groupId>org.apache.httpcomponents.client5</groupId>
+            <artifactId>httpclient5</artifactId>
+            <version>5.4.4</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents.core5</groupId>
+            <artifactId>httpcore5</artifactId>
+            <version>5.3.6</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents.core5</groupId>
+            <artifactId>httpcore5-h2</artifactId>
+            <version>5.3.6</version>
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- Mockito(Byte Buddy)가 아직 최신 JDK를 공식 지원하지 않는 환경에서
+                         mock 생성이 실패하는 걸 막기 위한 플래그. 테스트 로직과는 무관. -->
+                    <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
