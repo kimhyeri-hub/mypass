@@ -1,13 +1,15 @@
 package com.interview.backend.project;
 
-import com.interview.backend.project.dto.ProjectCreateRequest;
 import com.interview.backend.project.dto.ProjectResponse;
-import jakarta.validation.Valid;
+import com.interview.backend.project.dto.UpdateProjectRequest;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -30,26 +32,64 @@ public class ProjectController {
 
     @PostMapping
     public ResponseEntity<ProjectResponse> createProject(
-            @AuthenticationPrincipal String email,
-            @Valid @RequestBody ProjectCreateRequest request) {
-        return ResponseEntity.ok(projectService.createProject(email, request));
+            Authentication authentication,
+            @RequestParam String title,
+            @RequestParam(required = false) String description,
+            @RequestParam(required = false) String techStack,
+            @RequestParam(required = false) String role,
+            @RequestParam(required = false) String mainFeatures,
+            @RequestParam(required = false) String problemSolving,
+            @RequestParam(value = "files", required = false) List<MultipartFile> files
+    ) {
+        ProjectResponse response = projectService.createProject(
+                authentication.getName(), title, description, techStack, role, mainFeatures, problemSolving, files
+        );
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping
-    public ResponseEntity<List<ProjectResponse>> getMyProjects(@AuthenticationPrincipal String email) {
-        return ResponseEntity.ok(projectService.getMyProjects(email));
+    public ResponseEntity<List<ProjectResponse>> getMyProjects(Authentication authentication) {
+        return ResponseEntity.ok(projectService.getMyProjects(authentication.getName()));
     }
 
-    @PostMapping(value = "/{id}/document", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ProjectResponse> attachDocument(
-            @AuthenticationPrincipal String email,
-            @PathVariable Long id,
-            @RequestParam("file") MultipartFile file) {
-        return ResponseEntity.ok(projectService.attachDocument(email, id, file));
+    @GetMapping("/{projectId}")
+    public ResponseEntity<ProjectResponse> getProject(Authentication authentication, @PathVariable Long projectId) {
+        return ResponseEntity.ok(projectService.getProject(authentication.getName(), projectId));
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<String> handleInvalidFile(IllegalArgumentException e) {
-        return ResponseEntity.badRequest().body(e.getMessage());
+    @PatchMapping("/{projectId}")
+    public ResponseEntity<ProjectResponse> updateProject(
+            Authentication authentication,
+            @PathVariable Long projectId,
+            @RequestBody UpdateProjectRequest request
+    ) {
+        return ResponseEntity.ok(projectService.updateProject(authentication.getName(), projectId, request));
+    }
+
+    @DeleteMapping("/{projectId}")
+    public ResponseEntity<Void> deleteProject(Authentication authentication, @PathVariable Long projectId) {
+        projectService.deleteProject(authentication.getName(), projectId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{projectId}/files/{fileId}/download")
+    public ResponseEntity<Resource> downloadFile(
+            Authentication authentication,
+            @PathVariable Long projectId,
+            @PathVariable Long fileId
+    ) {
+        ProjectFileDownload download = projectService.downloadFile(authentication.getName(), projectId, fileId);
+
+        MediaType contentType;
+        try {
+            contentType = MediaType.parseMediaType(download.file().getFileType());
+        } catch (Exception e) {
+            contentType = MediaType.APPLICATION_OCTET_STREAM;
+        }
+
+        return ResponseEntity.ok()
+                .contentType(contentType)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + download.file().getOriginalName() + "\"")
+                .body(download.resource());
     }
 }

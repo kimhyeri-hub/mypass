@@ -11,6 +11,10 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 50MB
 
 server:
   port: 8080
@@ -22,3 +26,5 @@ app:
   openai:
     api-key: "여기에_본인_OpenAI_API_키"
     model: "gpt-4o-mini"
+  storage:
+    local-dir: ./uploads

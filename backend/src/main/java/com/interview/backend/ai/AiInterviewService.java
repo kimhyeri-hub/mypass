@@ -1,7 +1,5 @@
 package com.interview.backend.ai;
 
-import com.interview.backend.project.Project;
-import com.interview.backend.project.ProjectService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -9,21 +7,16 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class AiInterviewService {
 
-    private final ProjectService projectService;
     private final AiService aiService;
 
-    public AiInterviewService(ProjectService projectService, AiService aiService) {
-        this.projectService = projectService;
+    public AiInterviewService(AiService aiService) {
         this.aiService = aiService;
     }
 
-    public String generateQuestion(String email, Long projectId) {
-        Project project = projectService.getOwnedProject(email, projectId);
-
-        String parsedText = project.getParsedText();
+    public String generateQuestion(String parsedText) {
         if (parsedText == null || parsedText.isBlank()) {
             throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "프로젝트에 분석할 자료가 없습니다. PDF를 먼저 업로드하세요.");
+                    HttpStatus.BAD_REQUEST, "질문을 생성할 프로젝트 자료가 없습니다. PDF를 먼저 업로드하세요.");
         }
 
         return aiService.generateQuestion(buildPrompt(parsedText));
