@@ -26,9 +26,12 @@ public class BedrockAiService implements AiService {
     private final BedrockRuntimeClient bedrockRuntimeClient;
     private final String modelId;
 
+    // app.aws.bedrock.model-id는 일반 모델 ID뿐 아니라 학교 AWS 환경처럼
+    // us. 접두사가 붙은 cross-region inference profile ID/ARN도 그대로 받는다 -
+    // Converse API의 modelId 필드는 둘 다 그대로 문자열로 받아들인다.
     public BedrockAiService(
             BedrockRuntimeClient bedrockRuntimeClient,
-            @Value("${app.bedrock.model-id}") String modelId) {
+            @Value("${app.aws.bedrock.model-id}") String modelId) {
         this.bedrockRuntimeClient = bedrockRuntimeClient;
         this.modelId = modelId;
     }

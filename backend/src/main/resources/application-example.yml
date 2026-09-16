@@ -29,11 +29,13 @@ app:
   openai:
     api-key: "여기에_본인_OpenAI_API_키"
     model: "gpt-4o-mini"
-  # provider: bedrock 일 때만 사용됨. 자격증명은 여기 넣지 않는다 -
-  # AWS SDK Default Credentials Provider Chain(환경변수/~/.aws/credentials/
-  # EC2 인스턴스 프로파일 등)이 알아서 찾아서 쓴다.
-  bedrock:
-    region: us-east-1
-    model-id: "여기에_Bedrock_모델ID (예: anthropic.claude-3-haiku-20240307-v1:0)"
+  aws:
+    # provider: bedrock 일 때만 사용됨. 자격증명은 여기 넣지 않는다 -
+    # AWS SDK Default Credentials Provider Chain(환경변수/~/.aws/credentials/
+    # EC2 인스턴스 프로파일 등)이 알아서 찾아서 쓴다.
+    bedrock:
+      region: us-east-1
+      # 학교 AWS 환경은 us. 접두사가 붙은 cross-region inference profile ID를 씀
+      model-id: "us.anthropic.claude-3-haiku-20240307-v1:0"
   storage:
     local-dir: ./uploads
