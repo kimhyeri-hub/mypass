@@ -14,7 +14,7 @@ import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 public class BedrockConfig {
 
     @Bean
-    public BedrockRuntimeClient bedrockRuntimeClient(@Value("${app.bedrock.region}") String region) {
+    public BedrockRuntimeClient bedrockRuntimeClient(@Value("${app.aws.bedrock.region}") String region) {
         // AWS Access Key/Secret은 여기서도, 다른 어디서도 직접 넣지 않는다.
         // Default Credentials Provider Chain이 환경변수 -> ~/.aws/credentials ->
         // EC2 인스턴스 프로파일(SafeInstanceProfile-sgu-yaksok 등) 순으로 알아서 찾는다.
