@@ -1,5 +1,11 @@
 -- 면접프젝 DB 스키마 (MySQL 8.0 기준)
 -- 실행: mysql -u interview_app -p interview_db < schema.sql
+-- ec2 서버 CREATE DATABASE interview_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- CREATE USER 'interview_app'@'localhost' IDENTIFIED BY '1134';
+-- GRANT ALL PRIVILEGES ON interview_db.* TO 'interview_app'@'localhost';
+-- FLUSH PRIVILEGES;
+-- EXIT;
+
 
 CREATE TABLE users (
   user_id BIGINT AUTO_INCREMENT PRIMARY KEY,
