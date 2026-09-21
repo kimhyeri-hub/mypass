@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
 
 export default function Signup() {
@@ -9,6 +9,7 @@ export default function Signup() {
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -23,7 +24,8 @@ export default function Signup() {
     }
 
     setError('');
-    // TODO: 백엔드 회원가입 API 연동
+    // TODO: 백엔드 회원가입 API 연동. 지금은 검증만 통과하면 마이페이지로 이동합니다.
+    navigate('/mypage');
   };
 
   return (

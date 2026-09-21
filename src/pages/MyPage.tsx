@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import DashboardHeader from '../components/DashboardHeader';
 import StatCard from '../components/StatCard';
 import InterviewRow from '../components/InterviewRow';
@@ -27,8 +28,11 @@ const resumes: Resume[] = [
 ];
 
 export default function MyPage() {
+  const navigate = useNavigate();
+
   const handleStartInterview = () => {
-    // TODO: 새 모의면접 시작 플로우로 이동
+    // 새 모의면접 흐름 시작: 프로젝트 등록 → 자료 업로드 → 분석 중 → 면접 설정 → 면접 시작 준비 → AI 면접관
+    navigate('/interview/project');
   };
 
   const handleViewAllHistory = () => {
