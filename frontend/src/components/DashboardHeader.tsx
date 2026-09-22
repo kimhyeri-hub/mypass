@@ -19,7 +19,7 @@ export default function DashboardHeader({ userInitial }: DashboardHeaderProps) {
 
   return (
     <div className="flex items-center justify-between border-b border-[#F0EEFB] px-10 py-5.5">
-      <Logo />
+      <Logo to="/" />
       <div className="flex items-center gap-3">
         <button
           onClick={() => setIsLogoutModalOpen(true)}
