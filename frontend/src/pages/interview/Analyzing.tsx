@@ -1,19 +1,55 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useInterviewSetup } from '../../context/InterviewSetupContext';
+import { createProject } from '../../api/interview';
+import { ApiError } from '../../api/client';
 
 export default function Analyzing() {
   const navigate = useNavigate();
+  const { data, updateData } = useInterviewSetup();
   const [step, setStep] = useState<0 | 1>(0);
+  const [error, setError] = useState('');
+  const startedRef = useRef(false);
 
   useEffect(() => {
-    // TODO: 실제로는 백엔드의 문서 분석 API 응답을 기다렸다가 다음 화면으로 이동합니다.
+    if (startedRef.current) return;
+    startedRef.current = true;
+
     const toStructuring = setTimeout(() => setStep(1), 1200);
-    const toNext = setTimeout(() => navigate('/interview/setup'), 2400);
-    return () => {
-      clearTimeout(toStructuring);
-      clearTimeout(toNext);
-    };
-  }, [navigate]);
+
+    createProject({
+      title: data.projectName,
+      description: data.projectDescription,
+      techStack: data.techStack.join(', '),
+      role: data.role,
+      files: data.resumeFile ? [data.resumeFile] : undefined,
+    })
+      .then((project) => {
+        updateData({ projectId: project.projectId });
+        navigate('/interview/setup');
+      })
+      .catch((err) => {
+        setError(err instanceof ApiError ? err.message : '자료 분석에 실패했어요. 잠시 후 다시 시도해 주세요.');
+      });
+
+    return () => clearTimeout(toStructuring);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center px-10 py-24 text-center">
+        <p className="mb-4 max-w-[280px] text-sm text-red-500">{error}</p>
+        <button
+          type="button"
+          onClick={() => navigate('/interview/upload')}
+          className="rounded-lg border border-stroke px-5 py-2.5 text-sm text-[#3A3355]"
+        >
+          ← 이전으로 돌아가기
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center px-10 py-24 text-center">

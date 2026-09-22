@@ -7,9 +7,13 @@ export interface InterviewSetupData {
   techStack: string[];
   role: string;
   resumeFileName: string;
+  resumeFile: File | null;
   jobRole: string;
   difficulty: '쉬움' | '보통' | '어려움';
   questionCount: number;
+  projectId: number | null;
+  sessionId: number | null;
+  firstQuestion: { questionId: number; questionText: string } | null;
 }
 
 const defaultData: InterviewSetupData = {
@@ -18,9 +22,13 @@ const defaultData: InterviewSetupData = {
   techStack: [],
   role: '',
   resumeFileName: '',
+  resumeFile: null,
   jobRole: '백엔드 개발자',
   difficulty: '보통',
   questionCount: 8,
+  projectId: null,
+  sessionId: null,
+  firstQuestion: null,
 };
 
 interface InterviewSetupContextValue {

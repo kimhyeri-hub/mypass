@@ -13,22 +13,24 @@ export default function UploadResume() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [fileName, setFileName] = useState(data.resumeFileName);
+  const [file, setFile] = useState<File | null>(data.resumeFile);
   const [fileSize, setFileSize] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
 
-  const acceptFile = (file: File) => {
-    if (file.type !== 'application/pdf') {
+  const acceptFile = (selected: File) => {
+    if (selected.type !== 'application/pdf') {
       setError('PDF 파일만 업로드할 수 있어요.');
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
+    if (selected.size > 10 * 1024 * 1024) {
       setError('파일 크기는 10MB를 넘을 수 없어요.');
       return;
     }
     setError('');
-    setFileName(file.name);
-    setFileSize(formatFileSize(file.size));
+    setFile(selected);
+    setFileName(selected.name);
+    setFileSize(formatFileSize(selected.size));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,11 +46,11 @@ export default function UploadResume() {
   };
 
   const handleNext = () => {
-    if (!fileName) {
+    if (!fileName || !file) {
       setError('자료를 하나 이상 업로드해 주세요.');
       return;
     }
-    updateData({ resumeFileName: fileName });
+    updateData({ resumeFileName: fileName, resumeFile: file });
     navigate('/interview/analyzing');
   };
 

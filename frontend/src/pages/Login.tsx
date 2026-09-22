@@ -74,10 +74,6 @@ export default function Login() {
 
           {error && <p className="mb-3 text-xs text-red-500">{error}</p>}
 
-          <div className="mb-6 text-right">
-            <span className="cursor-pointer text-xs text-brand">비밀번호를 잊으셨나요?</span>
-          </div>
-
           <button
             type="submit"
             disabled={isSubmitting}

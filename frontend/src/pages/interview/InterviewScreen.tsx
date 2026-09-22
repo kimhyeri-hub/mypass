@@ -1,57 +1,100 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useInterviewSetup } from '../../context/InterviewSetupContext';
+import { completeSession, generateQuestion, submitAnswer } from '../../api/interview';
+import { ApiError } from '../../api/client';
+
+interface QuestionItem {
+  questionId: number;
+  text: string;
+}
 
 export default function InterviewScreen() {
   const navigate = useNavigate();
   const { data } = useInterviewSetup();
+  const startedRef = useRef(false);
 
-  // TODO: 백엔드 연동 시 이 더미 질문 목록 대신, 프로젝트 정보를 넘겨 생성된 질문 목록을 API로 받아옵니다.
-  const questions = useMemo(() => {
-    const projectLabel = data.projectName || '진행하신 프로젝트';
-    return [
-      `${projectLabel}에서 프론트엔드를 맡으셨다고 되어있는데, 가장 구현하기 어려웠던 화면이나 기능이 있었다면 무엇이었나요?`,
-      '그 문제를 해결하기 위해 어떤 방법들을 고려했고, 최종적으로 어떤 방법을 선택했나요?',
-      '팀원과 기술적으로 의견이 달랐던 경험이 있다면 어떻게 해결했는지 설명해 주세요.',
-    ].slice(0, Math.max(1, Math.min(data.questionCount, 3)));
-  }, [data.projectName, data.questionCount]);
-
+  const [questions, setQuestions] = useState<QuestionItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answer, setAnswer] = useState('');
   const [error, setError] = useState('');
   const [isRecording, setIsRecording] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+
+    if (!data.sessionId || !data.firstQuestion) {
+      queueMicrotask(() => setError('면접 세션을 찾을 수 없어요. 면접 설정부터 다시 진행해 주세요.'));
+      return;
+    }
+    const { questionId, questionText } = data.firstQuestion;
+    queueMicrotask(() => setQuestions([{ questionId, text: questionText }]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const currentQuestion = questions[currentIndex];
-  const isLastQuestion = currentIndex === questions.length - 1;
+  const isLastQuestion = currentIndex + 1 >= data.questionCount;
 
   const handleToggleRecording = () => {
     // TODO: 실제 음성 녹음/STT 연동 자리
     setIsRecording((prev) => !prev);
   };
 
-  const handleSubmitAnswer = () => {
+  const handleSubmitAnswer = async () => {
     if (!answer.trim()) {
       setError('답변을 입력하거나 음성으로 답변해 주세요.');
       return;
     }
+    if (!data.sessionId || !currentQuestion) return;
 
     setError('');
-    // TODO: 백엔드에 답변을 제출하고, 꼬리질문 여부를 응답받아 분기 처리합니다.
+    setIsSubmitting(true);
+    try {
+      await submitAnswer(data.sessionId, currentQuestion.questionId, { answerText: answer });
 
-    if (isLastQuestion) {
-      navigate('/mypage');
-      return;
+      if (isLastQuestion) {
+        await completeSession(data.sessionId);
+        navigate('/mypage');
+        return;
+      }
+
+      const nextQuestion = await generateQuestion(data.sessionId);
+      setQuestions((prev) => [...prev, { questionId: nextQuestion.questionId, text: nextQuestion.questionText }]);
+      setCurrentIndex((prev) => prev + 1);
+      setAnswer('');
+      setIsRecording(false);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '답변 제출에 실패했어요. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setCurrentIndex((prev) => prev + 1);
-    setAnswer('');
-    setIsRecording(false);
   };
+
+  if (!currentQuestion) {
+    return (
+      <div className="flex flex-col items-center px-10 py-24 text-center">
+        <p className="mb-4 max-w-[280px] text-sm text-red-500">
+          {error || '질문을 불러오는 중이에요...'}
+        </p>
+        {error && (
+          <button
+            type="button"
+            onClick={() => navigate('/interview/setup')}
+            className="rounded-lg border border-stroke px-5 py-2.5 text-sm text-[#3A3355]"
+          >
+            ← 이전으로 돌아가기
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[580px] px-10 pb-2 pt-10">
       <div className="mb-8 text-right text-xs text-[#98A2B3]">
-        질문 {currentIndex + 1} / {questions.length}
+        질문 {currentIndex + 1} / {data.questionCount}
       </div>
 
       <div className="mb-9 flex items-start gap-4">
@@ -61,7 +104,7 @@ export default function InterviewScreen() {
         <div className="flex-1">
           <div className="mb-2 text-xs text-[#98A2B3]">AI 면접관</div>
           <div className="max-w-[460px] rounded-3xl rounded-tl-md bg-card px-6 py-5 text-[15px] leading-[1.8] text-ink">
-            {currentQuestion}
+            {currentQuestion.text}
           </div>
         </div>
       </div>
@@ -92,9 +135,10 @@ export default function InterviewScreen() {
         <button
           type="button"
           onClick={handleSubmitAnswer}
-          className="rounded-xl bg-brand px-8 py-3 text-sm font-medium text-white transition-colors hover:bg-brand-dark"
+          disabled={isSubmitting}
+          className="rounded-xl bg-brand px-8 py-3 text-sm font-medium text-white transition-colors hover:bg-brand-dark disabled:opacity-60"
         >
-          답변 제출
+          {isSubmitting ? '제출 중...' : '답변 제출'}
         </button>
       </div>
     </div>
