@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# 로컬/서버 API 주소 (사람마다 EC2 IP가 달라질 수 있어 커밋하지 않음)
+.env
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

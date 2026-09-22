@@ -2,14 +2,16 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
+import { ApiError, login } from '../api/auth';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     if (!email || !password) {
@@ -18,8 +20,17 @@ export default function Login() {
     }
 
     setError('');
-    // TODO: 백엔드 로그인 API 연동. 지금은 검증만 통과하면 마이페이지로 이동합니다.
-    navigate('/mypage');
+    setIsSubmitting(true);
+    try {
+      const result = await login({ email, password });
+      localStorage.setItem('mypass_token', result.accessToken);
+      localStorage.setItem('mypass_user', JSON.stringify({ email: result.email, name: result.name }));
+      navigate('/mypage');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '로그인에 실패했어요. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -69,9 +80,10 @@ export default function Login() {
 
           <button
             type="submit"
-            className="mb-7 w-full rounded-lg bg-brand py-3 text-sm font-medium text-white hover:bg-brand-dark"
+            disabled={isSubmitting}
+            className="mb-7 w-full rounded-lg bg-brand py-3 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-60"
           >
-            로그인
+            {isSubmitting ? '로그인 중...' : '로그인'}
           </button>
         </form>
 

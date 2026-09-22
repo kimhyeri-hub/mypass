@@ -1,20 +1,31 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
+import { ApiError, signup } from '../api/auth';
 
 export default function Signup() {
+  const navigate = useNavigate();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     if (!name || !email || !password || !passwordConfirm) {
       setError('모든 항목을 입력해 주세요.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('올바른 이메일 형식이 아니에요.');
+      return;
+    }
+    if (password.length < 8) {
+      setError('비밀번호는 8자 이상이어야 해요.');
       return;
     }
     if (password !== passwordConfirm) {
@@ -23,7 +34,15 @@ export default function Signup() {
     }
 
     setError('');
-    // TODO: 백엔드 회원가입 API 연동
+    setIsSubmitting(true);
+    try {
+      await signup({ name, email, password });
+      navigate('/login');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '회원가입에 실패했어요. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -93,9 +112,10 @@ export default function Signup() {
 
           <button
             type="submit"
-            className="my-4 w-full rounded-lg bg-brand py-3 text-sm font-medium text-white hover:bg-brand-dark"
+            disabled={isSubmitting}
+            className="my-4 w-full rounded-lg bg-brand py-3 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-60"
           >
-            회원가입
+            {isSubmitting ? '가입 중...' : '회원가입'}
           </button>
         </form>
 
