@@ -71,6 +71,17 @@ public class InterviewSessionController {
         return ResponseEntity.ok(sessionService.addAnswer(authentication.getName(), sessionId, questionId, request));
     }
 
+    @PostMapping("/{sessionId}/questions/{questionId}/answers/{answerId}/next")
+    public ResponseEntity<QuestionResponse> generateNextQuestion(
+            Authentication authentication,
+            @PathVariable Long sessionId,
+            @PathVariable Long questionId,
+            @PathVariable Long answerId
+    ) {
+        return ResponseEntity.ok(
+                sessionService.generateNextQuestion(authentication.getName(), sessionId, questionId, answerId));
+    }
+
     @PostMapping("/{sessionId}/complete")
     public ResponseEntity<SessionResponse> completeSession(
             Authentication authentication,

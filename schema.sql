@@ -53,6 +53,10 @@ CREATE TABLE interview_sessions (
   strengths TEXT,
   weaknesses TEXT,
   summary_text TEXT,
+  job_role VARCHAR(20),
+  difficulty VARCHAR(20),
+  question_count INT,
+  mode VARCHAR(20),
   CONSTRAINT fk_sessions_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
   CONSTRAINT fk_sessions_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
 );

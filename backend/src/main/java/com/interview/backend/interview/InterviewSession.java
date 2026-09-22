@@ -2,6 +2,8 @@ package com.interview.backend.interview;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -47,6 +49,23 @@ public class InterviewSession {
 
     @Column(name = "summary_text", columnDefinition = "TEXT")
     private String summaryText;
+
+    // 면접 설정값 - 세션 생성 시 프론트에서 넘어오며, 전부 선택값이라 기존 세션(값이 없는 row)도
+    // NULL로 그대로 둘 수 있다. 아직 질문 생성 프롬프트나 종료 로직에서는 쓰지 않고 저장만 한다.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "job_role", length = 20)
+    private JobRole jobRole;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "difficulty", length = 20)
+    private Difficulty difficulty;
+
+    @Column(name = "question_count")
+    private Integer questionCount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "mode", length = 20)
+    private InterviewMode mode;
 
     public InterviewSession() {
     }
@@ -144,5 +163,37 @@ public class InterviewSession {
 
     public void setSummaryText(String summaryText) {
         this.summaryText = summaryText;
+    }
+
+    public JobRole getJobRole() {
+        return jobRole;
+    }
+
+    public void setJobRole(JobRole jobRole) {
+        this.jobRole = jobRole;
+    }
+
+    public Difficulty getDifficulty() {
+        return difficulty;
+    }
+
+    public void setDifficulty(Difficulty difficulty) {
+        this.difficulty = difficulty;
+    }
+
+    public Integer getQuestionCount() {
+        return questionCount;
+    }
+
+    public void setQuestionCount(Integer questionCount) {
+        this.questionCount = questionCount;
+    }
+
+    public InterviewMode getMode() {
+        return mode;
+    }
+
+    public void setMode(InterviewMode mode) {
+        this.mode = mode;
     }
 }
