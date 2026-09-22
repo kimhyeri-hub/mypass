@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useInterviewSetup } from '../../context/InterviewSetupContext';
 import { completeSession, generateQuestion, submitAnswer } from '../../api/interview';
 import { ApiError } from '../../api/client';
+import { useTextToSpeech } from '../../hooks/useTextToSpeech';
+import { useSpeechToText } from '../../hooks/useSpeechToText';
 
 interface QuestionItem {
   questionId: number;
@@ -13,12 +15,13 @@ export default function InterviewScreen() {
   const navigate = useNavigate();
   const { data } = useInterviewSetup();
   const startedRef = useRef(false);
+  const { speak, stopSpeaking, isSpeaking } = useTextToSpeech();
+  const { startListening, stopListening, isListening, transcript, error: sttError } = useSpeechToText();
 
   const [questions, setQuestions] = useState<QuestionItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answer, setAnswer] = useState('');
   const [error, setError] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -37,9 +40,27 @@ export default function InterviewScreen() {
   const currentQuestion = questions[currentIndex];
   const isLastQuestion = currentIndex + 1 >= data.questionCount;
 
+  // 질문이 바뀔 때마다 자동으로 읽어주고, 화면을 벗어나면 재생을 멈춘다.
+  useEffect(() => {
+    if (currentQuestion) speak(currentQuestion.text);
+    return () => stopSpeaking();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQuestion?.questionId]);
+
+  // 마이크로 인식된 텍스트를 답변 입력창에 실시간으로 반영한다.
+  useEffect(() => {
+    if (isListening) queueMicrotask(() => setAnswer(transcript));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transcript]);
+
   const handleToggleRecording = () => {
-    // TODO: 실제 음성 녹음/STT 연동 자리
-    setIsRecording((prev) => !prev);
+    if (isListening) {
+      stopListening();
+    } else {
+      stopSpeaking();
+      if (error) setError('');
+      startListening();
+    }
   };
 
   const handleSubmitAnswer = async () => {
@@ -49,6 +70,7 @@ export default function InterviewScreen() {
     }
     if (!data.sessionId || !currentQuestion) return;
 
+    if (isListening) stopListening();
     setError('');
     setIsSubmitting(true);
     try {
@@ -64,7 +86,6 @@ export default function InterviewScreen() {
       setQuestions((prev) => [...prev, { questionId: nextQuestion.questionId, text: nextQuestion.questionText }]);
       setCurrentIndex((prev) => prev + 1);
       setAnswer('');
-      setIsRecording(false);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '답변 제출에 실패했어요. 잠시 후 다시 시도해 주세요.');
     } finally {
@@ -102,7 +123,17 @@ export default function InterviewScreen() {
           <i className="ti ti-robot text-xl text-brand" aria-hidden="true" />
         </div>
         <div className="flex-1">
-          <div className="mb-2 text-xs text-[#98A2B3]">AI 면접관</div>
+          <div className="mb-2 flex items-center gap-2 text-xs text-[#98A2B3]">
+            AI 면접관
+            <button
+              type="button"
+              onClick={() => speak(currentQuestion.text)}
+              disabled={isSpeaking}
+              className="text-brand disabled:opacity-50"
+            >
+              <i className="ti ti-volume text-sm" aria-hidden="true" /> 다시 듣기
+            </button>
+          </div>
           <div className="max-w-[460px] rounded-3xl rounded-tl-md bg-card px-6 py-5 text-[15px] leading-[1.8] text-ink">
             {currentQuestion.text}
           </div>
@@ -120,17 +151,19 @@ export default function InterviewScreen() {
         className="mb-1 w-full resize-none rounded-2xl border border-stroke px-5 py-4 text-[15px] leading-relaxed text-ink placeholder:text-[#A79FCB] focus:border-brand focus:outline-none"
       />
       {error && <p className="mb-2 text-xs text-red-500">{error}</p>}
+      {sttError && <p className="mb-2 text-xs text-red-500">{sttError}</p>}
 
       <div className="mb-8 mt-5 flex items-center justify-between gap-4">
         <button
           type="button"
           onClick={handleToggleRecording}
-          className={`flex items-center gap-2 rounded-xl border px-5 py-3 text-sm transition-colors ${
-            isRecording ? 'border-brand bg-card text-brand' : 'border-stroke text-[#3A3355]'
+          disabled={!!sttError}
+          className={`flex items-center gap-2 rounded-xl border px-5 py-3 text-sm transition-colors disabled:opacity-50 ${
+            isListening ? 'border-brand bg-card text-brand' : 'border-stroke text-[#3A3355]'
           }`}
         >
           <i className="ti ti-microphone text-base" aria-hidden="true" />
-          {isRecording ? '녹음 중지' : '음성으로 답변'}
+          {isListening ? '녹음 중지' : '음성으로 답변'}
         </button>
         <button
           type="button"
