@@ -65,6 +65,8 @@ export default function App() {
 
         {/* 면접 결과/AI 분석 화면. 모의·실전 모두 마지막 질문 후 여기로 옵니다. */}
         <Route path="/interview/result" element={<InterviewResult />} />
+        {/* 마이페이지의 "다시보기"로 들어오는, 지난 면접의 결과 화면 */}
+        <Route path="/interview/result/:id" element={<InterviewResult />} />
       </Route>
     </Routes>
   );

@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import Logo from '../../components/Logo';
 import { useInterviewSetup } from '../../context/InterviewSetupContext';
 import { getDummyQuestions } from '../../utils/interviewQuestions';
+import { getInterviewHistoryItem } from '../../utils/interviewHistory';
 
 // TODO: 백엔드 연동 시 이 더미 데이터 대신 실제 채점/분석 결과를 API로 받아옵니다.
 const DUMMY_OVERALL_SCORE = 82;
@@ -30,14 +31,25 @@ function formatToday() {
 
 export default function InterviewResult() {
   const navigate = useNavigate();
+  const { id } = useParams<{ id?: string }>();
   const { data } = useInterviewSetup();
 
+  // 마이페이지의 "다시보기"로 들어온 경우엔 그때 봤던 면접 기록을, 방금 면접을 마친 경우엔
+  // 진행 중이던 설정(Context) 값을 사용합니다.
+  const historyItem = getInterviewHistoryItem(id);
+  const isReviewMode = Boolean(historyItem);
+
+  const jobRole = historyItem?.jobRole ?? data.jobRole;
+  const mode = historyItem?.mode ?? data.mode;
+  const questionCount = historyItem?.questionCount ?? data.questionCount;
+  const dateLabel = historyItem?.date ?? formatToday();
+
   const questions = useMemo(
-    () => getDummyQuestions(data.projectName, data.questionCount),
-    [data.projectName, data.questionCount],
+    () => getDummyQuestions(data.projectName, questionCount),
+    [data.projectName, questionCount],
   );
 
-  const modeLabel = data.mode === 'live' ? '실전면접' : '모의면접';
+  const modeLabel = mode === 'live' ? '실전면접' : '모의면접';
 
   const handleSaveResult = () => {
     // TODO: 백엔드 연동 시 이 결과를 저장하는 API를 호출합니다.
@@ -62,8 +74,13 @@ export default function InterviewResult() {
           <span className="rounded-full bg-card px-2.5 py-1 text-[11.5px] font-bold text-brand">
             {modeLabel}
           </span>
+          {isReviewMode && (
+            <span className="rounded-full bg-[#F4F2FA] px-2.5 py-1 text-[11.5px] font-bold text-muted">
+              지난 면접 다시보기
+            </span>
+          )}
           <span className="text-xs text-muted">
-            {formatToday()} · {data.jobRole} · 질문 {questions.length}개
+            {dateLabel} · {jobRole} · 질문 {questions.length}개
           </span>
         </div>
 
@@ -177,13 +194,23 @@ export default function InterviewResult() {
           >
             다시 풀어보기
           </button>
-          <button
-            type="button"
-            onClick={handleSaveResult}
-            className="flex-1 rounded-xl bg-brand py-3.5 text-sm font-bold text-white shadow-[0_10px_20px_-10px_rgba(108,78,224,0.6)] hover:bg-brand-dark"
-          >
-            결과 저장
-          </button>
+          {isReviewMode ? (
+            <button
+              type="button"
+              onClick={() => navigate('/mypage')}
+              className="flex-1 rounded-xl bg-brand py-3.5 text-sm font-bold text-white shadow-[0_10px_20px_-10px_rgba(108,78,224,0.6)] hover:bg-brand-dark"
+            >
+              마이페이지로
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSaveResult}
+              className="flex-1 rounded-xl bg-brand py-3.5 text-sm font-bold text-white shadow-[0_10px_20px_-10px_rgba(108,78,224,0.6)] hover:bg-brand-dark"
+            >
+              결과 저장
+            </button>
+          )}
         </div>
 
         <p className="mt-6 text-center text-xs text-muted">

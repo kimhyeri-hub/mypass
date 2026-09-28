@@ -56,14 +56,14 @@ export default function Signup() {
           />
 
           <label htmlFor="email" className="mb-2 block text-sm text-[#3A3355]">
-            학교 이메일
+            이메일
           </label>
           <input
             id="email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="name@university.ac.kr"
+            placeholder="name@example.com"
             className="mb-3.5 w-full rounded-lg border border-stroke px-3.5 py-3 text-sm text-ink placeholder:text-[#A79FCB] focus:border-brand focus:outline-none"
           />
 

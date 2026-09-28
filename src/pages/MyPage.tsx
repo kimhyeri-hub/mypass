@@ -3,25 +3,13 @@ import DashboardHeader from '../components/DashboardHeader';
 import StatCard from '../components/StatCard';
 import InterviewRow from '../components/InterviewRow';
 import { ResumeCard, AddResumeCard } from '../components/ResumeCard';
-
-interface Interview {
-  id: string;
-  title: string;
-  date: string;
-  questionCount: number;
-}
+import { interviewHistory } from '../utils/interviewHistory';
 
 interface Resume {
   id: string;
   title: string;
   uploadedDate: string;
 }
-
-const recentInterviews: Interview[] = [
-  { id: '1', title: '백엔드 개발자 면접', date: '2026.09.05', questionCount: 8 },
-  { id: '2', title: '프론트엔드 개발자 면접', date: '2026.08.28', questionCount: 6 },
-  { id: '3', title: '데이터 분석가 면접', date: '2026.08.14', questionCount: 7 },
-];
 
 const resumes: Resume[] = [
   { id: '1', title: '2026 신입 개발자 이력서', uploadedDate: '2026.08.01' },
@@ -40,8 +28,7 @@ export default function MyPage() {
   };
 
   const handleReview = (interviewId: string) => {
-    // TODO: 해당 면접의 상세 리뷰 화면으로 이동
-    console.log('review', interviewId);
+    navigate(`/interview/result/${interviewId}`);
   };
 
   const handleAddResume = () => {
@@ -82,14 +69,14 @@ export default function MyPage() {
           </button>
         </div>
         <div className="mb-10 overflow-hidden rounded-2xl border border-stroke bg-white">
-          {recentInterviews.map((interview, index) => (
+          {interviewHistory.map((interview, index) => (
             <InterviewRow
               key={interview.id}
               title={interview.title}
               date={interview.date}
               questionCount={interview.questionCount}
               onReview={() => handleReview(interview.id)}
-              isLast={index === recentInterviews.length - 1}
+              isLast={index === interviewHistory.length - 1}
             />
           ))}
         </div>
