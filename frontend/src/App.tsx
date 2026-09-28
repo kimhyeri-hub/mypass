@@ -3,6 +3,8 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import MyPage from './pages/MyPage';
+import InterviewHistoryList from './pages/InterviewHistoryList';
+import ResumeManage from './pages/ResumeManage';
 import ProjectRegister from './pages/interview/ProjectRegister';
 import UploadResume from './pages/interview/UploadResume';
 import Analyzing from './pages/interview/Analyzing';
@@ -47,6 +49,8 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/mypage" element={<MyPage />} />
+      <Route path="/mypage/history" element={<InterviewHistoryList />} />
+      <Route path="/mypage/resumes" element={<ResumeManage />} />
 
       <Route element={<InterviewProviderLayout />}>
         {/* 새 모의면접 시작 흐름: 프로젝트 등록 → 자료 업로드 → 분석 중 → 면접 설정 → 시작 준비 → (모의/실전) */}
@@ -65,6 +69,8 @@ export default function App() {
 
         {/* 면접 결과/AI 분석 화면. 모의·실전 모두 마지막 질문 후 여기로 옵니다. */}
         <Route path="/interview/result" element={<InterviewResult />} />
+        {/* 마이페이지의 "다시보기"로 들어오는, 지난 면접의 결과 화면 */}
+        <Route path="/interview/result/:id" element={<InterviewResult />} />
       </Route>
     </Routes>
   );

@@ -49,14 +49,14 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} noValidate>
           <label htmlFor="email" className="mb-2 block text-sm text-[#3A3355]">
-            학교 이메일
+            이메일
           </label>
           <input
             id="email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="name@university.ac.kr"
+            placeholder="name@example.com"
             className="mb-4 w-full rounded-lg border border-stroke px-3.5 py-3 text-sm text-ink placeholder:text-[#A79FCB] focus:border-brand focus:outline-none"
           />
 
@@ -73,6 +73,10 @@ export default function Login() {
           />
 
           {error && <p className="mb-3 text-xs text-red-500">{error}</p>}
+
+          <div className="mb-6 text-right">
+            <span className="cursor-pointer text-xs text-brand">비밀번호를 잊으셨나요?</span>
+          </div>
 
           <button
             type="submit"
