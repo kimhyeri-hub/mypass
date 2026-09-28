@@ -4,19 +4,13 @@ import StatCard from '../components/StatCard';
 import InterviewRow from '../components/InterviewRow';
 import { ResumeCard, AddResumeCard } from '../components/ResumeCard';
 import { interviewHistory } from '../utils/interviewHistory';
+import { initialResumes } from '../utils/resumes';
 
-interface Resume {
-  id: string;
-  title: string;
-  uploadedDate: string;
-}
-
-const resumes: Resume[] = [
-  { id: '1', title: '2026 신입 개발자 이력서', uploadedDate: '2026.08.01' },
-];
+const RECENT_COUNT = 3;
 
 export default function MyPage() {
   const navigate = useNavigate();
+  const recentInterviews = interviewHistory.slice(0, RECENT_COUNT);
 
   const handleStartInterview = () => {
     // 새 모의면접 흐름 시작: 프로젝트 등록 → 자료 업로드 → 분석 중 → 면접 설정 → 면접 시작 준비 → AI 면접관
@@ -24,15 +18,15 @@ export default function MyPage() {
   };
 
   const handleViewAllHistory = () => {
-    // TODO: 전체 면접 기록 페이지로 이동
+    navigate('/mypage/history');
   };
 
   const handleReview = (interviewId: string) => {
     navigate(`/interview/result/${interviewId}`);
   };
 
-  const handleAddResume = () => {
-    // TODO: 이력서 업로드 플로우로 이동
+  const handleManageResumes = () => {
+    navigate('/mypage/resumes');
   };
 
   return (
@@ -57,9 +51,9 @@ export default function MyPage() {
         </div>
 
         <div className="mb-10 grid grid-cols-3 gap-4">
-          <StatCard label="총 면접 횟수" value="12회" icon="ti-history" />
+          <StatCard label="총 면접 횟수" value={`${interviewHistory.length}회`} icon="ti-history" />
           <StatCard label="이번 달 연습" value="4회" icon="ti-calendar-stats" />
-          <StatCard label="등록한 이력서" value={`${resumes.length}개`} icon="ti-file-text" />
+          <StatCard label="등록한 이력서" value={`${initialResumes.length}개`} icon="ti-file-text" />
         </div>
 
         <div className="mb-3.5 flex items-center justify-between">
@@ -68,25 +62,45 @@ export default function MyPage() {
             전체 기록 보기
           </button>
         </div>
-        <div className="mb-10 overflow-hidden rounded-2xl border border-stroke bg-white">
-          {interviewHistory.map((interview, index) => (
-            <InterviewRow
-              key={interview.id}
-              title={interview.title}
-              date={interview.date}
-              questionCount={interview.questionCount}
-              onReview={() => handleReview(interview.id)}
-              isLast={index === interviewHistory.length - 1}
-            />
-          ))}
-        </div>
+        {recentInterviews.length > 0 ? (
+          <div className="mb-10 overflow-hidden rounded-2xl border border-stroke bg-white">
+            {recentInterviews.map((interview, index) => (
+              <InterviewRow
+                key={interview.id}
+                title={interview.title}
+                date={interview.date}
+                questionCount={interview.questionCount}
+                mode={interview.mode}
+                score={interview.score}
+                onReview={() => handleReview(interview.id)}
+                isLast={index === recentInterviews.length - 1}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="mb-10 rounded-2xl border-[1.5px] border-dashed border-stroke py-12 text-center">
+            <i className="ti ti-message-2 mb-2.5 block text-2xl text-[#C9C1E8]" aria-hidden="true" />
+            <p className="mb-3 text-sm text-muted">아직 진행한 면접이 없어요.</p>
+            <button
+              onClick={handleStartInterview}
+              className="text-xs font-semibold text-brand hover:underline"
+            >
+              첫 모의면접 시작하기
+            </button>
+          </div>
+        )}
 
-        <div className="mb-3.5 text-[15px] font-bold text-ink">내 이력서와 프로젝트</div>
+        <div className="mb-3.5 flex items-center justify-between">
+          <div className="text-[15px] font-bold text-ink">내 이력서와 프로젝트</div>
+          <button onClick={handleManageResumes} className="text-xs font-semibold text-brand">
+            관리하기
+          </button>
+        </div>
         <div className="flex gap-3.5">
-          {resumes.map((resume) => (
+          {initialResumes.map((resume) => (
             <ResumeCard key={resume.id} title={resume.title} uploadedDate={resume.uploadedDate} />
           ))}
-          <AddResumeCard onClick={handleAddResume} />
+          <AddResumeCard onClick={handleManageResumes} />
         </div>
       </div>
     </div>
