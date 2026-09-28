@@ -10,6 +10,7 @@ export interface InterviewSetupData {
   jobRole: string;
   difficulty: '쉬움' | '보통' | '어려움';
   questionCount: number;
+  mode: 'practice' | 'live';
 }
 
 const defaultData: InterviewSetupData = {
@@ -21,6 +22,7 @@ const defaultData: InterviewSetupData = {
   jobRole: '백엔드 개발자',
   difficulty: '보통',
   questionCount: 8,
+  mode: 'practice',
 };
 
 interface InterviewSetupContextValue {

@@ -18,16 +18,16 @@ export default function DashboardHeader({ userInitial }: DashboardHeaderProps) {
   };
 
   return (
-    <div className="flex items-center justify-between border-b border-[#F0EEFB] px-10 py-5.5">
+    <div className="flex items-center justify-between border-b border-stroke bg-white px-12 py-[22px]">
       <Logo to="/" />
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
         <button
           onClick={() => setIsLogoutModalOpen(true)}
           className="text-xs text-muted hover:text-ink"
         >
           로그아웃
         </button>
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-card text-sm font-medium text-brand">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-brand to-[#8F6FF0] text-sm font-semibold text-white">
           {userInitial}
         </div>
       </div>
