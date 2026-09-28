@@ -23,33 +23,6 @@ const steps = [
   },
 ];
 
-const features = [
-  {
-    icon: 'ti-message-2',
-    gradient: 'from-brand to-[#8F6FF0]',
-    title: '모의면접 (텍스트)',
-    description: '내 속도에 맞춰 글로 답변을 정리하며 연습할 수 있어요.',
-  },
-  {
-    icon: 'ti-headphones',
-    gradient: 'from-[#2FA36B] to-[#5FC996]',
-    title: '실전면접 (음성)',
-    description: 'AI가 음성으로 질문하고, 웹캠 앞에서 실제처럼 답변해요.',
-  },
-  {
-    icon: 'ti-chart-donut',
-    gradient: 'from-[#D98A2B] to-[#F0B45C]',
-    title: 'AI 역량 분석',
-    description: '논리·구체성·전달력을 점수화하고 개선 포인트를 짚어줘요.',
-  },
-  {
-    icon: 'ti-history',
-    gradient: 'from-[#4E7FE0] to-[#6FA6F0]',
-    title: '면접 기록 관리',
-    description: '지난 면접을 언제든 다시보기하며 성장 과정을 확인해요.',
-  },
-];
-
 export default function Home() {
   return (
     <div>
@@ -109,39 +82,6 @@ export default function Home() {
               </div>
               <h3 className="mb-1.5 text-sm font-bold text-ink">{step.title}</h3>
               <p className="text-xs leading-relaxed text-muted">{step.description}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* 핵심 기능 소개 */}
-      <section className="mx-auto max-w-[920px] px-[6vw] pb-9 pt-1">
-        <div className="mx-auto mb-[30px] max-w-[460px] text-center">
-          <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-[11.5px] font-bold text-brand">
-            <i className="ti ti-star text-sm" aria-hidden="true" />
-            핵심 기능
-          </span>
-          <h2 className="text-[23px] font-extrabold tracking-tight text-ink">MYPASS가 다른 점</h2>
-          <p className="mt-2 text-[13.5px] leading-relaxed text-muted">
-            모의면접부터 실전 훈련, 결과 분석까지 한 번에 해결해요.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
-          {features.map((feature) => (
-            <div
-              key={feature.title}
-              className="flex items-start gap-3 rounded-[18px] border border-stroke bg-white p-5"
-            >
-              <div
-                className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-lg text-white ${feature.gradient}`}
-              >
-                <i className={`ti ${feature.icon}`} aria-hidden="true" />
-              </div>
-              <div>
-                <h3 className="mb-1 text-[13.5px] font-bold text-ink">{feature.title}</h3>
-                <p className="text-xs leading-relaxed text-muted">{feature.description}</p>
-              </div>
             </div>
           ))}
         </div>
