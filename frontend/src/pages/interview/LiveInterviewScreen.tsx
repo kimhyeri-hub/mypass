@@ -42,12 +42,13 @@ export default function LiveInterviewScreen() {
 
   // 질문이 바뀌거나 "다시 듣기"를 누르면 AI가 음성으로 질문을 읽어주는 단계부터 다시 시작
   useEffect(() => {
-    setPhase('speaking');
-    setIsRecording(false);
+    queueMicrotask(() => {
+      setPhase('speaking');
+      setIsRecording(false);
+    });
     // TODO: 실제로는 여기서 TTS로 currentQuestion을 재생합니다.
     const timer = setTimeout(() => setPhase('listening'), SPEAKING_DURATION_MS);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex]);
 
   const processingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
