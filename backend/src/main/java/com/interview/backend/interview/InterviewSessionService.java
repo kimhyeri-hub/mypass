@@ -139,7 +139,7 @@ public class InterviewSessionService {
 
         String context = collectProjectContext(session.getProjectId());
 
-        String questionText = aiInterviewService.generateQuestion(context);
+        String questionText = aiInterviewService.generateQuestion(context, session.getJobRole(), session.getDifficulty());
 
         int nextSequenceNo = questionRepository.findBySessionIdOrderBySequenceNoAsc(sessionId).size() + 1;
         Question question = new Question(sessionId, null, nextSequenceNo, questionText, AI_QUESTION_TYPE, null);
@@ -191,11 +191,13 @@ public class InterviewSessionService {
 
         NextQuestionDecision decision;
         if (followUpDepth >= MAX_FOLLOW_UP_DEPTH) {
-            String newTopicQuestion = aiInterviewService.generateNewTopicQuestion(projectContext, askedQuestionTexts);
+            String newTopicQuestion = aiInterviewService.generateNewTopicQuestion(
+                    projectContext, askedQuestionTexts, session.getJobRole(), session.getDifficulty());
             decision = new NextQuestionDecision(NextQuestionType.NEW_TOPIC, newTopicQuestion);
         } else {
             decision = aiInterviewService.decideNextQuestion(
-                    projectContext, question.getQuestionText(), answer.getAnswerText(), askedQuestionTexts, followUpDepth);
+                    projectContext, question.getQuestionText(), answer.getAnswerText(), askedQuestionTexts,
+                    followUpDepth, session.getJobRole(), session.getDifficulty());
         }
 
         Long parentQuestionId = decision.type() == NextQuestionType.FOLLOW_UP ? question.getQuestionId() : null;

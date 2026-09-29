@@ -142,6 +142,30 @@ class InterviewSessionServiceTest {
     }
 
     @Test
+    void generateQuestionPassesSessionJobRoleAndDifficultyToPrompt() {
+        InterviewSession session = new InterviewSession(1L, 100L);
+        session.setSessionId(5L);
+        session.setJobRole(JobRole.FRONTEND);
+        session.setDifficulty(Difficulty.HARD);
+
+        ProjectFile file = new ProjectFile(100L, "resume.pdf", "application/pdf", "key");
+        file.setExtractedText("React와 TypeScript로 만든 서비스");
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(projectFileRepository.findByProjectId(100L)).thenReturn(List.of(file));
+        when(questionRepository.findBySessionIdOrderBySequenceNoAsc(5L)).thenReturn(List.of());
+        when(aiService.generateQuestion(any())).thenReturn("질문");
+        when(questionRepository.save(any(Question.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        sessionService().generateQuestion("a@example.com", 5L);
+
+        org.mockito.Mockito.verify(aiService).generateQuestion(org.mockito.ArgumentMatchers.argThat(prompt ->
+                prompt.contains("프론트엔드 관련 내용을 우선적으로 질문")
+                        && prompt.contains("트레이드오프")));
+    }
+
+    @Test
     void rejectsWhenProjectHasNoExtractedText() {
         InterviewSession session = new InterviewSession(1L, 100L);
         session.setSessionId(5L);
@@ -258,6 +282,64 @@ class InterviewSessionServiceTest {
 
         assertThatThrownBy(() -> sessionService().generateNextQuestion("a@example.com", 5L, 10L, 20L))
                 .isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test
+    void generateNextQuestionPassesSessionJobRoleAndDifficultyToPrompt() {
+        InterviewSession session = session(1L, 100L, 5L);
+        session.setJobRole(JobRole.AI);
+        session.setDifficulty(Difficulty.EASY);
+        Question currentQuestion = question(10L, 5L, "OCR은 어떤 걸 쓰셨나요?");
+        Answer answer = finalAnswer(20L, 10L, "AWS Textract를 사용했습니다.");
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(questionRepository.findById(10L)).thenReturn(Optional.of(currentQuestion));
+        when(answerRepository.findById(20L)).thenReturn(Optional.of(answer));
+        when(projectFileRepository.findByProjectId(100L)).thenReturn(List.of());
+        when(questionRepository.findBySessionIdOrderBySequenceNoAsc(5L)).thenReturn(List.of(currentQuestion));
+        when(aiService.generateQuestion(any()))
+                .thenReturn("{\"type\": \"FOLLOW_UP\", \"question\": \"질문\"}");
+        when(questionRepository.save(any(Question.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        sessionService().generateNextQuestion("a@example.com", 5L, 10L, 20L);
+
+        org.mockito.Mockito.verify(aiService).generateQuestion(org.mockito.ArgumentMatchers.argThat(prompt ->
+                prompt.contains("AI 관련 내용을 우선적으로 질문")
+                        && prompt.contains("기본 개념을 설명할 수 있는 수준")));
+    }
+
+    @Test
+    void forcedNewTopicPassesSessionJobRoleAndDifficultyToPrompt() {
+        InterviewSession session = session(1L, 100L, 5L);
+        session.setJobRole(JobRole.DATA);
+        session.setDifficulty(Difficulty.NORMAL);
+        Question root = question(1L, 5L, "OCR은 어떤 걸 쓰셨나요?");
+        Question followUp1 = new Question(5L, 1L, 2, "Textract 세부 구현은 어떻게 했나요?", "AI", null);
+        followUp1.setQuestionId(2L);
+        Question followUp2 = new Question(5L, 2L, 3, "성능은 어떻게 측정했나요?", "AI", null);
+        followUp2.setQuestionId(3L);
+        Answer answer = finalAnswer(30L, 3L, "응답시간을 측정했습니다.");
+
+        ProjectFile file = new ProjectFile(100L, "resume.pdf", "application/pdf", "key");
+        file.setExtractedText("약쏘옥 프로젝트 자료");
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(questionRepository.findById(3L)).thenReturn(Optional.of(followUp2));
+        when(questionRepository.findById(2L)).thenReturn(Optional.of(followUp1));
+        when(questionRepository.findById(1L)).thenReturn(Optional.of(root));
+        when(answerRepository.findById(30L)).thenReturn(Optional.of(answer));
+        when(projectFileRepository.findByProjectId(100L)).thenReturn(List.of(file));
+        when(questionRepository.findBySessionIdOrderBySequenceNoAsc(5L)).thenReturn(List.of(root, followUp1, followUp2));
+        when(aiService.generateQuestion(any())).thenReturn("DUR API 연동은 어떻게 구현했나요?");
+        when(questionRepository.save(any(Question.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        sessionService().generateNextQuestion("a@example.com", 5L, 3L, 30L);
+
+        org.mockito.Mockito.verify(aiService).generateQuestion(org.mockito.ArgumentMatchers.argThat(prompt ->
+                prompt.contains("데이터 관련 내용을 우선적으로 질문")
+                        && prompt.contains("기술 선택 이유, 프로젝트 적용 과정")));
     }
 
     @Test
