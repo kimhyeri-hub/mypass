@@ -8,6 +8,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -52,11 +54,15 @@ public class InterviewSession {
 
     // 면접 설정값 - 세션 생성 시 프론트에서 넘어오며, 전부 선택값이라 기존 세션(값이 없는 row)도
     // NULL로 그대로 둘 수 있다. 아직 질문 생성 프롬프트나 종료 로직에서는 쓰지 않고 저장만 한다.
+    // MariaDB 방언에서 Hibernate가 enum 필드를 보면 기본적으로 네이티브 ENUM 컬럼을 기대하는데,
+    // schema.sql은 VARCHAR로 두기로 했으므로 JdbcTypeCode로 VARCHAR 취급을 강제한다.
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "job_role", length = 20)
     private JobRole jobRole;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "difficulty", length = 20)
     private Difficulty difficulty;
 
@@ -64,6 +70,7 @@ public class InterviewSession {
     private Integer questionCount;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "mode", length = 20)
     private InterviewMode mode;
 
