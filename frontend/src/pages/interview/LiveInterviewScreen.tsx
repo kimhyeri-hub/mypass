@@ -4,10 +4,11 @@ import Logo from '../../components/Logo';
 import ConfirmModal from '../../components/ConfirmModal';
 import { useInterviewSetup } from '../../context/InterviewSetupContext';
 import { getDummyQuestions } from '../../utils/interviewQuestions';
+import { useTextToSpeech } from '../../hooks/useTextToSpeech';
+import { useSpeechToText } from '../../hooks/useSpeechToText';
 
 type Phase = 'speaking' | 'listening' | 'processing';
 
-const SPEAKING_DURATION_MS = 2600; // TODO: 실제로는 TTS 음성 재생이 끝나는 시점에 맞춰 전환합니다.
 const PROCESSING_DURATION_MS = 1100; // TODO: 실제로는 STT 결과를 서버에 제출하고 응답을 받는 시간입니다.
 
 function formatTime(totalSeconds: number) {
@@ -27,9 +28,14 @@ export default function LiveInterviewScreen() {
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>('speaking');
-  const [isRecording, setIsRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
+  // 질문별로 받은 답변(STT 결과)을 모아두는 곳. 나중에 submitAnswer API로 보낼 때 이 배열을 쓰면 돼요.
+  const [, setAnswers] = useState<string[]>([]);
+
+  // 이미 만들어져 있는 TTS/STT 훅을 그대로 가져다 써요.
+  const { speak, isSpeaking } = useTextToSpeech();
+  const { startListening, stopListening, isListening, transcript, error: sttError } = useSpeechToText();
 
   const currentQuestion = questions[currentIndex];
   const isLastQuestion = currentIndex === questions.length - 1;
@@ -68,31 +74,40 @@ export default function LiveInterviewScreen() {
     };
   }, []);
 
-  // 질문이 바뀌거나 "다시 듣기"를 누르면 AI가 음성으로 질문을 읽어주는 단계부터 다시 시작
+  // 질문이 바뀌면 AI가 음성으로 다시 읽어줘요.
   useEffect(() => {
-    queueMicrotask(() => {
-      setPhase('speaking');
-      setIsRecording(false);
-    });
-    // TODO: 실제로는 여기서 TTS로 currentQuestion을 재생합니다.
-    const timer = setTimeout(() => setPhase('listening'), SPEAKING_DURATION_MS);
-    return () => clearTimeout(timer);
+    queueMicrotask(() => setPhase('speaking'));
+    speak(currentQuestion);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex]);
+
+  // isSpeaking이 true였다가 false로 바뀌는 순간 = 음성 재생이 막 끝난 순간이에요.
+  // 그 타이밍에 '답변 대기(listening)' 상태로 넘어가요.
+  const wasSpeakingRef = useRef(false);
+  useEffect(() => {
+    if (wasSpeakingRef.current && !isSpeaking && phase === 'speaking') {
+      setPhase('listening');
+    }
+    wasSpeakingRef.current = isSpeaking;
+  }, [isSpeaking, phase]);
 
   const processingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleMicClick = () => {
     if (phase !== 'listening') return;
 
-    if (!isRecording) {
-      // TODO: 실제 음성 답변 녹음/STT 시작
-      setIsRecording(true);
+    if (!isListening) {
+      // 마이크 on: 음성 인식을 시작해요.
+      startListening();
       return;
     }
 
-    // TODO: 실제 음성 녹음 종료 및 STT 결과 제출
-    setIsRecording(false);
+    // 마이크 off: 음성 인식을 멈추고, 지금까지 인식된 텍스트(transcript)를 답변으로 저장해요.
+    stopListening();
+    setAnswers((prev) => [...prev, transcript]);
     setPhase('processing');
+    // TODO: 여기서 submitAnswer(sessionId, questionId, { answerText: transcript })로
+    // 백엔드에 실제 답변을 제출하고, 꼬리질문 등 응답을 받아옵니다. (frontend/src/api/interview.ts 참고)
     processingTimerRef.current = setTimeout(() => {
       if (isLastQuestion) {
         navigate('/interview/result');
@@ -111,14 +126,14 @@ export default function LiveInterviewScreen() {
   const handleReplay = () => {
     if (phase === 'processing') return;
     setPhase('speaking');
-    setIsRecording(false);
+    speak(currentQuestion);
   };
 
   const stateLabel =
     phase === 'speaking'
       ? 'AI가 질문을 말하고 있어요'
       : phase === 'listening'
-        ? isRecording
+        ? isListening
           ? '답변을 듣고 있어요'
           : '준비되면 마이크를 눌러 답변해 주세요'
         : '답변을 확인하고 있어요';
@@ -127,7 +142,7 @@ export default function LiveInterviewScreen() {
     phase === 'speaking'
       ? '음성으로 질문을 읽어드리고 있어요'
       : phase === 'listening'
-        ? isRecording
+        ? isListening
           ? '답변이 끝나면 마이크를 다시 눌러주세요'
           : ''
         : '잠시만 기다려주세요';
@@ -170,7 +185,7 @@ export default function LiveInterviewScreen() {
         </div>
 
         <div className="mb-1 text-base font-bold text-ink">{stateLabel}</div>
-        <div className="mb-8 min-h-[18px] text-[13px] text-muted">{stateSub || ' '}</div>
+        <div className="mb-8 min-h-[18px] text-[13px] text-muted">{stateSub || ' '}</div>
 
         <div className="mb-8 max-w-[480px] rounded-[20px] border border-stroke bg-white px-6 py-5 text-center text-[15px] leading-relaxed text-ink">
           {currentQuestion}
@@ -212,15 +227,15 @@ export default function LiveInterviewScreen() {
             <span
               key={i}
               className={`w-1 rounded-full bg-brand transition-all ${
-                isRecording ? 'h-[30px] animate-[live-bar_1s_ease-in-out_infinite]' : 'h-2 opacity-35'
+                isListening ? 'h-[30px] animate-[live-bar_1s_ease-in-out_infinite]' : 'h-2 opacity-35'
               }`}
-              style={isRecording ? { animationDelay: `${i * 0.12}s` } : undefined}
+              style={isListening ? { animationDelay: `${i * 0.12}s` } : undefined}
             />
           ))}
         </div>
 
         <div className="relative mb-4 flex h-[76px] w-[76px] items-center justify-center">
-          {isRecording && (
+          {isListening && (
             <>
               <span className="absolute inset-0 animate-[live-ring_1.6s_ease-out_infinite] rounded-full border-2 border-brand/35" />
               <span className="absolute inset-0 animate-[live-ring_1.6s_ease-out_infinite] rounded-full border-2 border-brand/35 [animation-delay:0.8s]" />
@@ -236,9 +251,13 @@ export default function LiveInterviewScreen() {
                 : 'cursor-default bg-[#D9D4EC]'
             }`}
           >
-            <i className={`ti ${isRecording ? 'ti-player-stop' : 'ti-microphone'}`} aria-hidden="true" />
+            <i className={`ti ${isListening ? 'ti-player-stop' : 'ti-microphone'}`} aria-hidden="true" />
           </button>
         </div>
+
+        {sttError && (
+          <p className="mb-4 max-w-[280px] text-center text-[11px] text-[#B5495A]">{sttError}</p>
+        )}
 
         <button
           type="button"
