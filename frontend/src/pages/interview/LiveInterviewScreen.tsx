@@ -40,6 +40,34 @@ export default function LiveInterviewScreen() {
     return () => clearInterval(timer);
   }, []);
 
+  // 내 웹캠 화면 미리보기 (실전면접처럼 내 모습이 보이도록)
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [camStatus, setCamStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      queueMicrotask(() => setCamStatus('error'));
+      return;
+    }
+
+    navigator.mediaDevices
+      .getUserMedia({ video: true, audio: false })
+      // TODO: 실제 음성 답변(STT)까지 이 화면에서 함께 녹음한다면 audio: true로 바꾸고,
+      // 별도의 마이크 녹음 로직과 트랙을 공유하도록 연동합니다.
+      .then((s) => {
+        stream = s;
+        if (videoRef.current) videoRef.current.srcObject = s;
+        setCamStatus('ready');
+      })
+      .catch(() => setCamStatus('error'));
+
+    return () => {
+      stream?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
+
   // 질문이 바뀌거나 "다시 듣기"를 누르면 AI가 음성으로 질문을 읽어주는 단계부터 다시 시작
   useEffect(() => {
     queueMicrotask(() => {
@@ -144,8 +172,39 @@ export default function LiveInterviewScreen() {
         <div className="mb-1 text-base font-bold text-ink">{stateLabel}</div>
         <div className="mb-8 min-h-[18px] text-[13px] text-muted">{stateSub || ' '}</div>
 
-        <div className="mb-10 max-w-[480px] rounded-[20px] border border-stroke bg-white px-6 py-5 text-center text-[15px] leading-relaxed text-ink">
+        <div className="mb-8 max-w-[480px] rounded-[20px] border border-stroke bg-white px-6 py-5 text-center text-[15px] leading-relaxed text-ink">
           {currentQuestion}
+        </div>
+
+        <div className="mb-8 h-[260px] w-[420px] max-w-full overflow-hidden rounded-[24px] border border-stroke bg-ink shadow-[0_16px_32px_-16px_rgba(30,18,64,0.4)]">
+          {/* video를 항상 렌더링해야 스트림이 준비됐을 때 ref로 바로 연결할 수 있어요. */}
+          <div className="relative h-full w-full">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className={`h-full w-full object-cover [transform:scaleX(-1)] ${
+                camStatus === 'ready' ? '' : 'hidden'
+              }`}
+            />
+            {camStatus !== 'ready' && (
+              <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-white/50">
+                <i
+                  className={`ti ${camStatus === 'error' ? 'ti-camera-off' : 'ti-camera'} text-3xl`}
+                  aria-hidden="true"
+                />
+                <span className="px-3 text-center text-xs leading-snug">
+                  {camStatus === 'error'
+                    ? '카메라를 사용할 수 없어요'
+                    : '카메라를 불러오는 중이에요'}
+                </span>
+              </div>
+            )}
+            <div className="absolute bottom-3 left-3 rounded-full bg-black/40 px-2.5 py-1 text-[11px] font-medium text-white">
+              나
+            </div>
+          </div>
         </div>
 
         <div className="mb-9 flex h-8 items-center justify-center gap-1.5">

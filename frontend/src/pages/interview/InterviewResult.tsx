@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import Logo from '../../components/Logo';
 import { useInterviewSetup } from '../../context/InterviewSetupContext';
 import { getDummyQuestions } from '../../utils/interviewQuestions';
+import { getInterviewHistoryItem } from '../../utils/interviewHistory';
 
 // TODO: 백엔드 연동 시 이 더미 데이터 대신 실제 채점/분석 결과를 API로 받아옵니다.
 const DUMMY_OVERALL_SCORE = 82;
@@ -30,19 +31,79 @@ function formatToday() {
 
 export default function InterviewResult() {
   const navigate = useNavigate();
+  const { id } = useParams<{ id?: string }>();
   const { data } = useInterviewSetup();
 
+  // 마이페이지의 "다시보기"로 들어온 경우엔 그때 봤던 면접 기록을, 방금 면접을 마친 경우엔
+  // 진행 중이던 설정(Context) 값을 사용합니다.
+  const historyItem = getInterviewHistoryItem(id);
+  const isReviewMode = Boolean(historyItem);
+
+  const jobRole = historyItem?.jobRole ?? data.jobRole;
+  const mode = historyItem?.mode ?? data.mode;
+  const questionCount = historyItem?.questionCount ?? data.questionCount;
+  const dateLabel = historyItem?.date ?? formatToday();
+
   const questions = useMemo(
-    () => getDummyQuestions(data.projectName, data.questionCount),
-    [data.projectName, data.questionCount],
+    () => getDummyQuestions(data.projectName, questionCount),
+    [data.projectName, questionCount],
   );
 
-  const modeLabel = data.mode === 'live' ? '실전면접' : '모의면접';
+  const modeLabel = mode === 'live' ? '실전면접' : '모의면접';
+
+  // 다시보기(지난 면접)는 이미 분석이 끝난 결과라 로딩 없이 바로 보여주고,
+  // 방금 면접을 마친 경우에만 AI 분석을 기다리는 로딩 화면을 잠깐 보여줍니다.
+  // TODO: 백엔드 연동 시 setTimeout 대신 실제 분석 결과 API 응답을 기다렸다가 isLoading을 false로 바꿉니다.
+  const [isLoading, setIsLoading] = useState(!isReviewMode);
+
+  useEffect(() => {
+    if (isReviewMode) return;
+    const timer = setTimeout(() => setIsLoading(false), 1800);
+    return () => clearTimeout(timer);
+  }, [isReviewMode]);
 
   const handleSaveResult = () => {
     // TODO: 백엔드 연동 시 이 결과를 저장하는 API를 호출합니다.
     navigate('/');
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-canvas">
+        <div className="flex items-center justify-between border-b border-stroke bg-white px-10 py-[22px]">
+          <Logo size="sm" to="/" />
+        </div>
+
+        <div className="flex min-h-[calc(100vh-73px)] flex-col items-center justify-center px-6 py-10 text-center">
+          <div className="mb-7 h-16 w-16 animate-spin rounded-full border-[3px] border-[#E2DEF5] border-t-brand" />
+          <div className="mb-2 text-lg font-bold text-ink">AI가 답변을 분석하고 있어요</div>
+          <p className="mb-8 max-w-[320px] text-sm leading-relaxed text-muted">
+            답변 내용을 바탕으로 역량 점수와 피드백을 만들고 있어요. 잠시만 기다려주세요.
+          </p>
+
+          <div className="w-[300px] text-left">
+            <div className="flex items-center gap-2.5 border-b border-dashed border-stroke py-2.5">
+              <i className="ti ti-circle-check-filled text-base text-brand" aria-hidden="true" />
+              <span className="text-[13px] text-[#3A3355]">답변 전사(STT) 완료</span>
+            </div>
+            <div className="flex items-center gap-2.5 border-b border-dashed border-stroke py-2.5">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#E2DEF5] border-t-brand" />
+              <span className="text-[13px] text-[#3A3355]">역량별 점수 산출 중</span>
+            </div>
+            <div className="flex items-center gap-2.5 py-2.5">
+              <div className="h-4 w-4 rounded-full border-[1.5px] border-stroke" />
+              <span className="text-[13px] text-muted">AI 총평 생성</span>
+            </div>
+          </div>
+
+          <div className="mt-7 h-1.5 w-[300px] overflow-hidden rounded-full bg-card">
+            <div className="h-full w-2/3 rounded-full bg-brand" />
+          </div>
+          <div className="mt-2 text-[11.5px] text-muted">약 5~10초 정도 소요돼요</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -62,8 +123,13 @@ export default function InterviewResult() {
           <span className="rounded-full bg-card px-2.5 py-1 text-[11.5px] font-bold text-brand">
             {modeLabel}
           </span>
+          {isReviewMode && (
+            <span className="rounded-full bg-[#F4F2FA] px-2.5 py-1 text-[11.5px] font-bold text-muted">
+              지난 면접 다시보기
+            </span>
+          )}
           <span className="text-xs text-muted">
-            {formatToday()} · {data.jobRole} · 질문 {questions.length}개
+            {dateLabel} · {jobRole} · 질문 {questions.length}개
           </span>
         </div>
 
@@ -177,13 +243,23 @@ export default function InterviewResult() {
           >
             다시 풀어보기
           </button>
-          <button
-            type="button"
-            onClick={handleSaveResult}
-            className="flex-1 rounded-xl bg-brand py-3.5 text-sm font-bold text-white shadow-[0_10px_20px_-10px_rgba(108,78,224,0.6)] hover:bg-brand-dark"
-          >
-            결과 저장
-          </button>
+          {isReviewMode ? (
+            <button
+              type="button"
+              onClick={() => navigate('/mypage')}
+              className="flex-1 rounded-xl bg-brand py-3.5 text-sm font-bold text-white shadow-[0_10px_20px_-10px_rgba(108,78,224,0.6)] hover:bg-brand-dark"
+            >
+              마이페이지로
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSaveResult}
+              className="flex-1 rounded-xl bg-brand py-3.5 text-sm font-bold text-white shadow-[0_10px_20px_-10px_rgba(108,78,224,0.6)] hover:bg-brand-dark"
+            >
+              결과 저장
+            </button>
+          )}
         </div>
 
         <p className="mt-6 text-center text-xs text-muted">

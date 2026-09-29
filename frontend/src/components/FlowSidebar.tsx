@@ -27,23 +27,23 @@ export default function FlowSidebar() {
             <div
               key={step.path}
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
-                isCurrent ? 'bg-card font-medium text-brand' : isDone ? 'text-ink' : 'text-[#B7B2CF]'
+                isCurrent
+                  ? 'bg-card font-medium text-brand'
+                  : isDone
+                    ? 'font-medium text-ink'
+                    : 'text-[#B7B2CF]'
               }`}
             >
               <span
-                className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-[10px] ${
+                className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${
                   isCurrent
                     ? 'bg-brand text-white'
                     : isDone
-                      ? 'bg-ink text-white'
+                      ? 'border border-ink/30 text-ink'
                       : 'border border-[#E2DEF0] text-[#B7B2CF]'
                 }`}
               >
-                {isDone ? (
-                  <i className="ti ti-check text-[10px]" aria-hidden="true" />
-                ) : (
-                  String(index + 1).padStart(2, '0')
-                )}
+                {String(index + 1).padStart(2, '0')}
               </span>
               {step.label}
             </div>
