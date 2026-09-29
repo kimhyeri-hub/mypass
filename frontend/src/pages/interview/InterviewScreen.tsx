@@ -5,6 +5,7 @@ import { completeSession, generateQuestion, submitAnswer } from '../../api/inter
 import { ApiError } from '../../api/client';
 import { useTextToSpeech } from '../../hooks/useTextToSpeech';
 import { useSpeechToText } from '../../hooks/useSpeechToText';
+import ConfirmModal from '../../components/ConfirmModal';
 
 interface QuestionItem {
   questionId: number;
@@ -23,6 +24,8 @@ export default function InterviewScreen() {
   const [answer, setAnswer] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isHintOpen, setIsHintOpen] = useState(false);
+  const [isExitModalOpen, setIsExitModalOpen] = useState(false);
 
   useEffect(() => {
     if (startedRef.current) return;
@@ -87,6 +90,7 @@ export default function InterviewScreen() {
       setQuestions((prev) => [...prev, { questionId: nextQuestion.questionId, text: nextQuestion.questionText }]);
       setCurrentIndex((prev) => prev + 1);
       setAnswer('');
+      setIsHintOpen(false);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '답변 제출에 실패했어요. 잠시 후 다시 시도해 주세요.');
     } finally {
@@ -125,6 +129,14 @@ export default function InterviewScreen() {
         <div className="whitespace-nowrap text-xs font-semibold text-muted">
           질문 {currentIndex + 1} / {data.questionCount}
         </div>
+        <button
+          type="button"
+          onClick={() => setIsExitModalOpen(true)}
+          className="flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#FDEEEF] px-3 py-2 text-xs font-semibold text-[#B5495A]"
+        >
+          <i className="ti ti-x text-sm" aria-hidden="true" />
+          면접 종료
+        </button>
       </div>
 
       <div className="mb-8 flex items-start gap-3.5">
@@ -148,6 +160,26 @@ export default function InterviewScreen() {
           </div>
         </div>
       </div>
+
+      <button
+        type="button"
+        onClick={() => setIsHintOpen((prev) => !prev)}
+        className="mb-3.5 inline-flex items-center gap-1.5 rounded-[10px] border-[1.5px] border-dashed border-brand bg-white px-3.5 py-2 text-xs font-bold text-brand"
+      >
+        <i className="ti ti-bulb text-sm" aria-hidden="true" />
+        힌트 받기
+      </button>
+
+      {isHintOpen && (
+        <div className="mb-4 rounded-2xl border-[1.5px] border-stroke bg-canvas px-4 py-3.5">
+          <div className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-brand">
+            <i className="ti ti-bulb text-sm" aria-hidden="true" />
+            답변 힌트
+          </div>
+          {/* TODO: 백엔드 연동 시 이 자리에 실제 힌트 텍스트를 받아와 표시합니다. 지금은 더미 텍스트 없이 빈 상태만 보여줘요. */}
+          <p className="text-xs leading-relaxed text-muted">아직 준비된 힌트가 없어요.</p>
+        </div>
+      )}
 
       <textarea
         value={answer}
@@ -183,6 +215,16 @@ export default function InterviewScreen() {
           {isSubmitting ? '제출 중...' : '답변 제출'}
         </button>
       </div>
+
+      <ConfirmModal
+        isOpen={isExitModalOpen}
+        title="정말 면접을 종료하시겠어요?"
+        description="지금까지 답변한 내용은 저장되지 않고 사라져요."
+        confirmLabel="종료하기"
+        cancelLabel="계속하기"
+        onConfirm={() => navigate('/mypage')}
+        onCancel={() => setIsExitModalOpen(false)}
+      />
     </div>
   );
 }
