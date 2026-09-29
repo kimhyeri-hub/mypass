@@ -4,6 +4,7 @@ import com.interview.backend.interview.Difficulty;
 import com.interview.backend.interview.InterviewMode;
 import com.interview.backend.interview.InterviewSession;
 import com.interview.backend.interview.JobRole;
+import com.interview.backend.interview.SessionStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -11,11 +12,13 @@ import java.util.List;
 public record SessionResponse(
         Long sessionId,
         Long projectId,
-        String status,
+        SessionStatus status,
         LocalDateTime startedAt,
         LocalDateTime endedAt,
         Float overallContentScore,
         Float overallDeliveryScore,
+        Float logicScore,
+        Float specificityScore,
         String strengths,
         String weaknesses,
         String summaryText,
@@ -34,6 +37,8 @@ public record SessionResponse(
                 session.getEndedAt(),
                 session.getOverallContentScore(),
                 session.getOverallDeliveryScore(),
+                session.getLogicScore(),
+                session.getSpecificityScore(),
                 session.getStrengths(),
                 session.getWeaknesses(),
                 session.getSummaryText(),

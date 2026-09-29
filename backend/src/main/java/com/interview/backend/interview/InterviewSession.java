@@ -28,8 +28,10 @@ public class InterviewSession {
     @Column(name = "project_id", nullable = false)
     private Long projectId;
 
-    @Column(nullable = false)
-    private String status;
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(nullable = false, length = 20)
+    private SessionStatus status;
 
     @Column(name = "started_at")
     private LocalDateTime startedAt;
@@ -42,6 +44,13 @@ public class InterviewSession {
 
     @Column(name = "overall_delivery_score")
     private Float overallDeliveryScore;
+
+    // 역량별 분석 점수 - "전달력"은 overallDeliveryScore를 그대로 쓰고, 나머지 두 축만 추가한다.
+    @Column(name = "logic_score")
+    private Float logicScore;
+
+    @Column(name = "specificity_score")
+    private Float specificityScore;
 
     @Column(columnDefinition = "TEXT")
     private String strengths;
@@ -80,7 +89,7 @@ public class InterviewSession {
     public InterviewSession(Long userId, Long projectId) {
         this.userId = userId;
         this.projectId = projectId;
-        this.status = "IN_PROGRESS";
+        this.status = SessionStatus.IN_PROGRESS;
         this.startedAt = LocalDateTime.now();
     }
 
@@ -108,11 +117,11 @@ public class InterviewSession {
         this.projectId = projectId;
     }
 
-    public String getStatus() {
+    public SessionStatus getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(SessionStatus status) {
         this.status = status;
     }
 
@@ -146,6 +155,22 @@ public class InterviewSession {
 
     public void setOverallDeliveryScore(Float overallDeliveryScore) {
         this.overallDeliveryScore = overallDeliveryScore;
+    }
+
+    public Float getLogicScore() {
+        return logicScore;
+    }
+
+    public void setLogicScore(Float logicScore) {
+        this.logicScore = logicScore;
+    }
+
+    public Float getSpecificityScore() {
+        return specificityScore;
+    }
+
+    public void setSpecificityScore(Float specificityScore) {
+        this.specificityScore = specificityScore;
     }
 
     public String getStrengths() {

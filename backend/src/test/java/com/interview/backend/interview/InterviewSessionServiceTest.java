@@ -332,4 +332,233 @@ class InterviewSessionServiceTest {
         assertThat(response.parentQuestionId()).isNull();
         assertThat(response.sequenceNo()).isEqualTo(4);
     }
+
+    @Test
+    void rejectsGenerateQuestionWhenSessionIsAlreadyCompleted() {
+        InterviewSession session = session(1L, 100L, 5L);
+        session.setStatus(SessionStatus.COMPLETED);
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+
+        assertThatThrownBy(() -> sessionService().generateQuestion("a@example.com", 5L))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(e -> ((ResponseStatusException) e).getStatusCode())
+                .isEqualTo(org.springframework.http.HttpStatus.CONFLICT);
+    }
+
+    @Test
+    void rejectsAddAnswerWhenSessionIsAlreadyCompleted() {
+        InterviewSession session = session(1L, 100L, 5L);
+        session.setStatus(SessionStatus.COMPLETED);
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+
+        assertThatThrownBy(() -> sessionService().addAnswer(
+                "a@example.com", 5L, 10L,
+                new com.interview.backend.interview.dto.CreateAnswerRequest("답변", null, null, null)))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(e -> ((ResponseStatusException) e).getStatusCode())
+                .isEqualTo(org.springframework.http.HttpStatus.CONFLICT);
+    }
+
+    @Test
+    void rejectsGenerateNextQuestionWhenSessionIsAlreadyCompleted() {
+        InterviewSession session = session(1L, 100L, 5L);
+        session.setStatus(SessionStatus.COMPLETED);
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+
+        assertThatThrownBy(() -> sessionService().generateNextQuestion("a@example.com", 5L, 10L, 20L))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(e -> ((ResponseStatusException) e).getStatusCode())
+                .isEqualTo(org.springframework.http.HttpStatus.CONFLICT);
+    }
+
+    @Test
+    void completeSessionSetsStatusToCompletedAndEndedAt() {
+        InterviewSession session = session(1L, 100L, 5L);
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(sessionRepository.save(any(InterviewSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(questionRepository.findBySessionIdOrderBySequenceNoAsc(5L)).thenReturn(List.of());
+
+        SessionResponse response = sessionService().completeSession(
+                "a@example.com", 5L,
+                new com.interview.backend.interview.dto.CompleteSessionRequest(80f, 75f, 88f, 70f, "장점", "약점", "총평"));
+
+        assertThat(response.status()).isEqualTo(SessionStatus.COMPLETED);
+        assertThat(response.logicScore()).isEqualTo(88f);
+        assertThat(response.specificityScore()).isEqualTo(70f);
+        assertThat(session.getEndedAt()).isNotNull();
+    }
+
+    @Test
+    void rejectsGenerateQuestionWhenQuestionCountAlreadyReached() {
+        InterviewSession session = session(1L, 100L, 5L);
+        session.setQuestionCount(1);
+        Question intro = question(1L, 5L, "자기소개해주세요");
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(questionRepository.findBySessionIdOrderBySequenceNoAsc(5L)).thenReturn(List.of(intro));
+
+        assertThatThrownBy(() -> sessionService().generateQuestion("a@example.com", 5L))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(e -> ((ResponseStatusException) e).getStatusCode())
+                .isEqualTo(org.springframework.http.HttpStatus.CONFLICT);
+    }
+
+    @Test
+    void allowsGenerateQuestionWhenQuestionCountIsNotSet() {
+        InterviewSession session = session(1L, 100L, 5L);
+        Question intro = question(1L, 5L, "자기소개해주세요");
+        ProjectFile file = new ProjectFile(100L, "resume.pdf", "application/pdf", "key");
+        file.setExtractedText("약쏘옥 프로젝트 자료");
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(questionRepository.findBySessionIdOrderBySequenceNoAsc(5L)).thenReturn(List.of(intro));
+        when(projectFileRepository.findByProjectId(100L)).thenReturn(List.of(file));
+        when(aiService.generateQuestion(any())).thenReturn("다음 질문");
+        when(questionRepository.save(any(Question.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        QuestionResponse response = sessionService().generateQuestion("a@example.com", 5L);
+
+        assertThat(response.questionText()).isEqualTo("다음 질문");
+        assertThat(response.sequenceNo()).isEqualTo(2);
+    }
+
+    @Test
+    void rejectsGenerateNextQuestionWhenQuestionCountAlreadyReached() {
+        InterviewSession session = session(1L, 100L, 5L);
+        session.setQuestionCount(2);
+        Question currentQuestion = question(10L, 5L, "OCR은 어떤 걸 쓰셨나요?");
+        Question earlierQuestion = question(9L, 5L, "자기소개해주세요");
+        Answer answer = finalAnswer(20L, 10L, "AWS Textract를 사용했습니다.");
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(questionRepository.findById(10L)).thenReturn(Optional.of(currentQuestion));
+        when(answerRepository.findById(20L)).thenReturn(Optional.of(answer));
+        when(questionRepository.findBySessionIdOrderBySequenceNoAsc(5L))
+                .thenReturn(List.of(earlierQuestion, currentQuestion));
+
+        assertThatThrownBy(() -> sessionService().generateNextQuestion("a@example.com", 5L, 10L, 20L))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(e -> ((ResponseStatusException) e).getStatusCode())
+                .isEqualTo(org.springframework.http.HttpStatus.CONFLICT);
+    }
+
+    @Test
+    void completeSessionCanBeCalledAgainOnAnAlreadyCompletedSessionToUpdateResults() {
+        // 자동 종료(addAnswer) 또는 이전 completeSession 호출로 이미 COMPLETED된 세션이라도,
+        // 평가 결과를 채워 넣기 위해 다시 호출할 수 있어야 한다 - endedAt은 그대로 유지된다.
+        InterviewSession session = session(1L, 100L, 5L);
+        session.setStatus(SessionStatus.COMPLETED);
+        java.time.LocalDateTime firstEndedAt = java.time.LocalDateTime.now().minusMinutes(5);
+        session.setEndedAt(firstEndedAt);
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(sessionRepository.save(any(InterviewSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(questionRepository.findBySessionIdOrderBySequenceNoAsc(5L)).thenReturn(List.of());
+
+        SessionResponse response = sessionService().completeSession(
+                "a@example.com", 5L,
+                new com.interview.backend.interview.dto.CompleteSessionRequest(90f, 85f, 92f, 88f, "장점", "약점", "총평"));
+
+        assertThat(response.status()).isEqualTo(SessionStatus.COMPLETED);
+        assertThat(response.overallContentScore()).isEqualTo(90f);
+        assertThat(session.getEndedAt()).isEqualTo(firstEndedAt);
+    }
+
+    @Test
+    void addAnswerAutoCompletesSessionWhenAnsweringTheLastQuestion() {
+        InterviewSession session = session(1L, 100L, 5L);
+        session.setQuestionCount(2);
+        Question lastQuestion = question(10L, 5L, "성능은 어떻게 측정했나요?");
+        lastQuestion.setSequenceNo(2);
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(questionRepository.findById(10L)).thenReturn(Optional.of(lastQuestion));
+        when(answerRepository.findByQuestionId(10L)).thenReturn(List.of());
+        when(answerRepository.save(any(Answer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(sessionRepository.save(any(InterviewSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        sessionService().addAnswer(
+                "a@example.com", 5L, 10L,
+                new com.interview.backend.interview.dto.CreateAnswerRequest("답변", null, null, null));
+
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.COMPLETED);
+        assertThat(session.getEndedAt()).isNotNull();
+    }
+
+    @Test
+    void addAnswerDoesNotAutoCompleteWhenNotYetOnTheLastQuestion() {
+        InterviewSession session = session(1L, 100L, 5L);
+        session.setQuestionCount(3);
+        Question firstQuestion = question(10L, 5L, "자기소개해주세요");
+        firstQuestion.setSequenceNo(1);
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(questionRepository.findById(10L)).thenReturn(Optional.of(firstQuestion));
+        when(answerRepository.findByQuestionId(10L)).thenReturn(List.of());
+        when(answerRepository.save(any(Answer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        sessionService().addAnswer(
+                "a@example.com", 5L, 10L,
+                new com.interview.backend.interview.dto.CreateAnswerRequest("답변", null, null, null));
+
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.IN_PROGRESS);
+        assertThat(session.getEndedAt()).isNull();
+    }
+
+    @Test
+    void getSessionResultReturnsFullDataWhenSessionIsCompleted() {
+        InterviewSession session = session(1L, 100L, 5L);
+        session.setStatus(SessionStatus.COMPLETED);
+        session.setOverallContentScore(90f);
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(questionRepository.findBySessionIdOrderBySequenceNoAsc(5L)).thenReturn(List.of());
+
+        SessionResponse response = sessionService().getSessionResult("a@example.com", 5L);
+
+        assertThat(response.status()).isEqualTo(SessionStatus.COMPLETED);
+        assertThat(response.overallContentScore()).isEqualTo(90f);
+    }
+
+    @Test
+    void rejectsGetSessionResultWhenSessionIsStillInProgress() {
+        InterviewSession session = session(1L, 100L, 5L);
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+
+        assertThatThrownBy(() -> sessionService().getSessionResult("a@example.com", 5L))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(e -> ((ResponseStatusException) e).getStatusCode())
+                .isEqualTo(org.springframework.http.HttpStatus.CONFLICT);
+    }
+
+    @Test
+    void rejectsGetSessionResultForAnotherUsersSession() {
+        InterviewSession othersSession = session(2L, 100L, 5L);
+        othersSession.setStatus(SessionStatus.COMPLETED);
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(othersSession));
+
+        assertThatThrownBy(() -> sessionService().getSessionResult("a@example.com", 5L))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(e -> ((ResponseStatusException) e).getStatusCode())
+                .isEqualTo(org.springframework.http.HttpStatus.FORBIDDEN);
+    }
 }
