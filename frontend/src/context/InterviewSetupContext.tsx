@@ -11,6 +11,7 @@ export interface InterviewSetupData {
   jobRole: string;
   difficulty: '쉬움' | '보통' | '어려움';
   questionCount: number;
+  mode: 'practice' | 'live';
   projectId: number | null;
   sessionId: number | null;
   firstQuestion: { questionId: number; questionText: string } | null;
@@ -26,6 +27,7 @@ const defaultData: InterviewSetupData = {
   jobRole: '백엔드 개발자',
   difficulty: '보통',
   questionCount: 8,
+  mode: 'practice',
   projectId: null,
   sessionId: null,
   firstQuestion: null,

@@ -39,6 +39,7 @@ export default function InterviewScreen() {
 
   const currentQuestion = questions[currentIndex];
   const isLastQuestion = currentIndex + 1 >= data.questionCount;
+  const progressPercent = ((currentIndex + 1) / data.questionCount) * 100;
 
   // 질문이 바뀔 때마다 자동으로 읽어주고, 화면을 벗어나면 재생을 멈춘다.
   useEffect(() => {
@@ -78,7 +79,7 @@ export default function InterviewScreen() {
 
       if (isLastQuestion) {
         await completeSession(data.sessionId);
-        navigate('/mypage');
+        navigate('/interview/result');
         return;
       }
 
@@ -95,7 +96,7 @@ export default function InterviewScreen() {
 
   if (!currentQuestion) {
     return (
-      <div className="flex flex-col items-center px-10 py-24 text-center">
+      <div className="flex flex-col items-center py-24 text-center">
         <p className="mb-4 max-w-[280px] text-sm text-red-500">
           {error || '질문을 불러오는 중이에요...'}
         </p>
@@ -113,17 +114,25 @@ export default function InterviewScreen() {
   }
 
   return (
-    <div className="mx-auto max-w-[580px] px-10 pb-2 pt-10">
-      <div className="mb-8 text-right text-xs text-[#98A2B3]">
-        질문 {currentIndex + 1} / {data.questionCount}
+    <div>
+      <div className="mb-7 flex items-center gap-2.5">
+        <div className="h-[5px] flex-1 overflow-hidden rounded-full bg-card">
+          <div
+            className="h-full rounded-full bg-brand transition-all"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+        <div className="whitespace-nowrap text-xs font-semibold text-muted">
+          질문 {currentIndex + 1} / {data.questionCount}
+        </div>
       </div>
 
-      <div className="mb-9 flex items-start gap-4">
-        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-card">
-          <i className="ti ti-robot text-xl text-brand" aria-hidden="true" />
+      <div className="mb-8 flex items-start gap-3.5">
+        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand to-[#8F6FF0] text-white">
+          <i className="ti ti-robot text-lg" aria-hidden="true" />
         </div>
         <div className="flex-1">
-          <div className="mb-2 flex items-center gap-2 text-xs text-[#98A2B3]">
+          <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-muted">
             AI 면접관
             <button
               type="button"
@@ -134,7 +143,7 @@ export default function InterviewScreen() {
               <i className="ti ti-volume text-sm" aria-hidden="true" /> 다시 듣기
             </button>
           </div>
-          <div className="max-w-[460px] rounded-3xl rounded-tl-md bg-card px-6 py-5 text-[15px] leading-[1.8] text-ink">
+          <div className="rounded-[20px] rounded-tl-md bg-card px-5 py-4 text-[15px] leading-[1.75] text-ink">
             {currentQuestion.text}
           </div>
         </div>
@@ -148,7 +157,7 @@ export default function InterviewScreen() {
         }}
         placeholder="답변을 입력하거나 마이크 버튼을 눌러 말로 답변하세요"
         rows={5}
-        className="mb-1 w-full resize-none rounded-2xl border border-stroke px-5 py-4 text-[15px] leading-relaxed text-ink placeholder:text-[#A79FCB] focus:border-brand focus:outline-none"
+        className="mb-1 w-full resize-none rounded-2xl border-[1.5px] border-stroke px-5 py-4 text-[15px] leading-relaxed text-ink placeholder:text-[#B6AED8] focus:border-brand focus:outline-none"
       />
       {error && <p className="mb-2 text-xs text-red-500">{error}</p>}
       {sttError && <p className="mb-2 text-xs text-red-500">{sttError}</p>}
@@ -158,7 +167,7 @@ export default function InterviewScreen() {
           type="button"
           onClick={handleToggleRecording}
           disabled={!!sttError}
-          className={`flex items-center gap-2 rounded-xl border px-5 py-3 text-sm transition-colors disabled:opacity-50 ${
+          className={`flex items-center gap-2 rounded-xl border-[1.5px] px-5 py-3 text-sm font-semibold transition-colors disabled:opacity-50 ${
             isListening ? 'border-brand bg-card text-brand' : 'border-stroke text-[#3A3355]'
           }`}
         >
@@ -169,7 +178,7 @@ export default function InterviewScreen() {
           type="button"
           onClick={handleSubmitAnswer}
           disabled={isSubmitting}
-          className="rounded-xl bg-brand px-8 py-3 text-sm font-medium text-white transition-colors hover:bg-brand-dark disabled:opacity-60"
+          className="rounded-xl bg-brand px-8 py-3 text-sm font-bold text-white shadow-[0_10px_20px_-10px_rgba(108,78,224,0.6)] transition-colors hover:bg-brand-dark disabled:opacity-60"
         >
           {isSubmitting ? '제출 중...' : '답변 제출'}
         </button>

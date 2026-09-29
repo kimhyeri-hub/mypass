@@ -44,14 +44,14 @@ export default function ProjectRegister() {
 
   return (
     <>
-      <div className="px-10 pb-2 pt-9">
+      <div className="mb-8">
         <div className="text-xl font-bold text-ink">프로젝트를 등록해주세요</div>
         <div className="mt-1.5 text-sm text-muted">
           면접 질문은 이 정보를 바탕으로 만들어져요
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="max-w-[480px] px-10 pb-3 pt-7">
+      <form onSubmit={handleSubmit}>
         <label htmlFor="projectName" className="mb-1.5 block text-sm text-[#3A3355]">
           프로젝트명
         </label>

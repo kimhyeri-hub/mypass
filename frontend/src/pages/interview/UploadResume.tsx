@@ -56,14 +56,14 @@ export default function UploadResume() {
 
   return (
     <>
-      <div className="px-10 pb-2 pt-9">
+      <div className="mb-8">
         <div className="text-xl font-bold text-ink">관련 자료를 업로드해주세요</div>
         <div className="mt-1.5 text-sm text-muted">
           이력서나 프로젝트 문서(PDF)를 올려주시면 더 정확한 질문을 만들 수 있어요
         </div>
       </div>
 
-      <div className="max-w-[480px] px-10 pb-3 pt-7">
+      <div>
         <div
           onClick={() => fileInputRef.current?.click()}
           onDragOver={(e) => {
