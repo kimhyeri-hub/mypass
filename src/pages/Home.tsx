@@ -129,21 +129,32 @@ export default function Home() {
       <ReportPreviewSection />
 
       {/* 하단 최종 CTA */}
-      <section className="mx-auto max-w-[920px] px-[6vw] pb-16 pt-2">
+      <section className="mx-auto max-w-[760px] px-[6vw] pb-14 pt-0">
         <Reveal>
-          <div className="animate-grad-shift rounded-[24px] bg-gradient-to-r from-brand-dark via-brand to-[#8A6BF2] bg-[length:200%_200%] px-[6vw] py-10 text-center text-white shadow-[0_20px_40px_-20px_rgba(108,78,224,0.55)]">
-            <h2 className="mb-2.5 font-serif text-[23px] font-bold">지금, 실전처럼 준비해보세요</h2>
-            <p className="mb-5 text-[13px] text-[#E3DBFA]">
-              이력서 한 장이면 충분해요. 가입은 1분이면 끝나요.
-            </p>
+          <div
+            className="mx-auto flex max-w-[600px] items-center gap-4 rounded-[18px] border-[1.5px] border-transparent bg-white p-[12px_16px]"
+            style={{
+              backgroundImage:
+                'linear-gradient(#fff, #fff), linear-gradient(90deg, #CFC3FA, #9EE4D2)',
+              backgroundOrigin: 'border-box',
+              backgroundClip: 'padding-box, border-box',
+            }}
+          >
+            <div className="flex h-[42px] w-[62px] flex-shrink-0 items-center justify-center rounded-[9px] bg-card text-lg text-brand">
+              <i className="ti ti-sparkles" aria-hidden="true" />
+            </div>
+            <div className="flex-1 text-sm font-bold text-ink">
+              지금, 실전처럼 준비해보세요
+              <span className="mt-0.5 block text-xs font-normal text-muted">
+                이력서 한 장이면 충분해요. 가입은 1분이면 끝나요.
+              </span>
+            </div>
             <Link
               to="/signup"
-              className="inline-flex items-center gap-2 rounded-xl bg-white px-[26px] py-3.5 text-sm font-bold text-brand-dark shadow-[0_10px_20px_-8px_rgba(0,0,0,0.25)] transition-all hover:-translate-y-0.5 hover:bg-[#F6F3FE]"
+              className="whitespace-nowrap rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-brand-dark"
             >
-              <i className="ti ti-arrow-right text-base" aria-hidden="true" />
               무료로 시작하기
             </Link>
-            <p className="mt-3 text-[11.5px] text-[#DCD3FA]">신용카드 등록 없이 바로 이용 가능해요</p>
           </div>
         </Reveal>
       </section>
