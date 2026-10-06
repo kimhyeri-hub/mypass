@@ -390,14 +390,19 @@ export default function ReportPreviewSection() {
           }}
         >
           <div className="flex h-[42px] w-[62px] items-center justify-center rounded-[9px] bg-card text-lg text-[#B6AED8]">
-            <i className="ti ti-report-analytics" aria-hidden="true" />
+            <i className="ti ti-lock" aria-hidden="true" />
           </div>
-          <div className="flex-1 text-sm font-bold text-ink">실제 리포트 화면이 궁금하다면?</div>
+          <div className="flex-1 text-sm font-bold text-ink">
+            전체 리포트가 궁금하다면?
+            <span className="mt-0.5 block text-xs font-normal text-muted">
+              로그인하면 실제 리포트 화면을 볼 수 있어요
+            </span>
+          </div>
           <Link
-            to="/sample-report"
-            className="rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-brand-dark"
+            to="/login"
+            className="whitespace-nowrap rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-brand-dark"
           >
-            샘플 보기
+            로그인하고 보기
           </Link>
         </div>
       </Reveal>

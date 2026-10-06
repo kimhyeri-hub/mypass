@@ -72,8 +72,6 @@ export default function App() {
         <Route path="/interview/result" element={<InterviewResult />} />
         {/* 마이페이지의 "다시보기"로 들어오는, 지난 면접의 결과 화면 */}
         <Route path="/interview/result/:id" element={<InterviewResult />} />
-        {/* 홈의 "샘플 보기"로 들어오는, 로그인 없이 볼 수 있는 샘플 리포트 */}
-        <Route path="/sample-report" element={<InterviewResult sample />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />
