@@ -4,6 +4,7 @@ import Logo from '../../components/Logo';
 import { useInterviewSetup } from '../../context/InterviewSetupContext';
 import { getDummyQuestions } from '../../utils/interviewQuestions';
 import { getInterviewHistoryItem } from '../../utils/interviewHistory';
+import ErrorState from '../../components/ErrorState';
 
 // TODO: 백엔드 연동 시 이 더미 데이터 대신 실제 채점/분석 결과를 API로 받아옵니다.
 const DUMMY_OVERALL_SCORE = 82;
@@ -29,7 +30,12 @@ function formatToday() {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export default function InterviewResult() {
+interface InterviewResultProps {
+  // true면 홈의 "샘플 보기"로 들어온 샘플 리포트입니다. (로그인·면접 기록 없이 더미 결과를 보여줘요)
+  sample?: boolean;
+}
+
+export default function InterviewResult({ sample = false }: InterviewResultProps) {
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
   const { data } = useInterviewSetup();
@@ -39,14 +45,15 @@ export default function InterviewResult() {
   const historyItem = getInterviewHistoryItem(id);
   const isReviewMode = Boolean(historyItem);
 
-  const jobRole = historyItem?.jobRole ?? data.jobRole;
-  const mode = historyItem?.mode ?? data.mode;
-  const questionCount = historyItem?.questionCount ?? data.questionCount;
+  const jobRole = sample ? '프론트엔드 개발자' : (historyItem?.jobRole ?? data.jobRole);
+  const mode = sample ? 'practice' : (historyItem?.mode ?? data.mode);
+  const questionCount = sample ? 3 : (historyItem?.questionCount ?? data.questionCount);
   const dateLabel = historyItem?.date ?? formatToday();
+  const projectName = sample ? '샘플 프로젝트' : data.projectName;
 
   const questions = useMemo(
-    () => getDummyQuestions(data.projectName, questionCount),
-    [data.projectName, questionCount],
+    () => getDummyQuestions(projectName, questionCount),
+    [projectName, questionCount],
   );
 
   const modeLabel = mode === 'live' ? '실전면접' : '모의면접';
@@ -54,18 +61,37 @@ export default function InterviewResult() {
   // 다시보기(지난 면접)는 이미 분석이 끝난 결과라 로딩 없이 바로 보여주고,
   // 방금 면접을 마친 경우에만 AI 분석을 기다리는 로딩 화면을 잠깐 보여줍니다.
   // TODO: 백엔드 연동 시 setTimeout 대신 실제 분석 결과 API 응답을 기다렸다가 isLoading을 false로 바꿉니다.
-  const [isLoading, setIsLoading] = useState(!isReviewMode);
+  // 샘플 리포트도 분석을 기다릴 필요가 없어서 로딩 없이 바로 보여줍니다.
+  const [isLoading, setIsLoading] = useState(!isReviewMode && !sample);
 
   useEffect(() => {
-    if (isReviewMode) return;
+    if (isReviewMode || sample) return;
     const timer = setTimeout(() => setIsLoading(false), 1800);
     return () => clearTimeout(timer);
-  }, [isReviewMode]);
+  }, [isReviewMode, sample]);
 
   const handleSaveResult = () => {
     // TODO: 백엔드 연동 시 이 결과를 저장하는 API를 호출합니다.
-    navigate('/');
+    navigate('/mypage');
   };
+
+  // 다시보기 주소(:id)로 들어왔는데 해당 면접 기록을 찾지 못한 경우
+  // TODO: 백엔드 연동 후에는 결과 조회 API가 실패했을 때도 이 화면(ErrorState)을 보여주세요.
+  if (id && !historyItem) {
+    return (
+      <div className="min-h-screen bg-canvas">
+        <div className="flex items-center justify-between border-b border-stroke bg-white px-10 py-[22px]">
+          <Logo size="sm" to="/" />
+        </div>
+        <div className="flex min-h-[calc(100vh-73px)] items-center justify-center">
+          <ErrorState
+            title="결과를 불러오지 못했어요"
+            description="해당 면접 기록을 찾을 수 없어요. 마이페이지에서 다시 선택해 주세요."
+          />
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -109,13 +135,23 @@ export default function InterviewResult() {
     <div className="min-h-screen bg-canvas">
       <div className="flex items-center justify-between border-b border-stroke bg-white px-10 py-[22px]">
         <Logo size="sm" to="/" />
-        <button
-          type="button"
-          onClick={() => navigate('/mypage')}
-          className="rounded-lg bg-[#F4F2FA] px-3.5 py-2 text-xs font-semibold text-muted hover:text-ink"
-        >
-          마이페이지로
-        </button>
+        {sample ? (
+          <button
+            type="button"
+            onClick={() => navigate('/signup')}
+            className="rounded-lg bg-brand px-3.5 py-2 text-xs font-bold text-white hover:bg-brand-dark"
+          >
+            무료로 시작하기
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => navigate('/mypage')}
+            className="rounded-lg bg-[#F4F2FA] px-3.5 py-2 text-xs font-semibold text-muted hover:text-ink"
+          >
+            마이페이지로
+          </button>
+        )}
       </div>
 
       <div className="mx-auto max-w-[760px] px-6 py-11">
@@ -128,8 +164,14 @@ export default function InterviewResult() {
               지난 면접 다시보기
             </span>
           )}
+          {sample && (
+            <span className="rounded-full bg-[#F4F2FA] px-2.5 py-1 text-[11.5px] font-bold text-muted">
+              샘플 리포트
+            </span>
+          )}
           <span className="text-xs text-muted">
-            {dateLabel} · {jobRole} · 질문 {questions.length}개
+            {sample ? '' : `${dateLabel} · `}
+            {jobRole} · 질문 {questions.length}개
           </span>
         </div>
 
@@ -238,12 +280,20 @@ export default function InterviewResult() {
         <div className="flex gap-3">
           <button
             type="button"
-            onClick={() => navigate('/interview/setup')}
+            onClick={() => navigate(sample ? '/' : '/interview/setup')}
             className="flex-1 rounded-xl border-[1.5px] border-stroke bg-white py-3.5 text-sm font-semibold text-[#3A3355]"
           >
-            다시 풀어보기
+            {sample ? '홈으로' : '다시 풀어보기'}
           </button>
-          {isReviewMode ? (
+          {sample ? (
+            <button
+              type="button"
+              onClick={() => navigate('/signup')}
+              className="flex-1 rounded-xl bg-brand py-3.5 text-sm font-bold text-white shadow-[0_10px_20px_-10px_rgba(108,78,224,0.6)] hover:bg-brand-dark"
+            >
+              무료로 시작하기
+            </button>
+          ) : isReviewMode ? (
             <button
               type="button"
               onClick={() => navigate('/mypage')}
@@ -263,7 +313,9 @@ export default function InterviewResult() {
         </div>
 
         <p className="mt-6 text-center text-xs text-muted">
-          ※ 백엔드 연동 전이라 위 점수·피드백은 모두 더미 데이터입니다.
+          {sample
+            ? '※ 실제 결과가 아닌 샘플 리포트예요. 가입하면 내 답변으로 만들어진 리포트를 받아볼 수 있어요.'
+            : '※ 백엔드 연동 전이라 위 점수·피드백은 모두 더미 데이터입니다.'}
         </p>
       </div>
     </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useInterviewSetup } from '../../context/InterviewSetupContext';
 import { createSession } from '../../api/interview';
+import ErrorState from '../../components/ErrorState';
 
 export default function InterviewStarting() {
   const navigate = useNavigate();
@@ -48,19 +49,11 @@ export default function InterviewStarting() {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center py-10 text-center">
-        <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-[#FDEEEF] text-2xl text-[#B5495A]">
-          <i className="ti ti-alert-triangle" aria-hidden="true" />
-        </div>
-        <div className="mb-2.5 text-lg font-bold text-ink">{error}</div>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="mt-3 rounded-xl bg-brand px-6 py-3 text-sm font-bold text-white hover:bg-brand-dark"
-        >
-          다시 시도하기
-        </button>
-      </div>
+      <ErrorState
+        title="면접을 시작하지 못했어요"
+        description="잠시 후 다시 시도해 주세요. 문제가 계속되면 마이페이지로 돌아가 주세요."
+        onRetry={() => window.location.reload()}
+      />
     );
   }
 
