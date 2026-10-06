@@ -155,14 +155,14 @@ public class InterviewSessionService {
         InterviewSession session = getOwnedSession(user, sessionId);
         requireInProgress(session);
 
-        int currentQuestionCount = questionRepository.findBySessionIdOrderBySequenceNoAsc(sessionId).size();
-        requireQuestionCountNotReached(session, currentQuestionCount);
+        List<Question> existingQuestions = questionRepository.findBySessionIdOrderBySequenceNoAsc(sessionId);
+        requireQuestionCountNotReached(session, countProjectQuestions(existingQuestions));
 
         String context = collectProjectContext(session.getProjectId());
 
         String questionText = aiInterviewService.generateQuestion(context, session.getJobRole(), session.getDifficulty());
 
-        int nextSequenceNo = currentQuestionCount + 1;
+        int nextSequenceNo = existingQuestions.size() + 1;
         Question question = new Question(sessionId, null, nextSequenceNo, questionText, AI_QUESTION_TYPE, null);
         questionRepository.save(question);
 
@@ -202,7 +202,7 @@ public class InterviewSessionService {
         }
 
         List<Question> sessionQuestions = questionRepository.findBySessionIdOrderBySequenceNoAsc(sessionId);
-        requireQuestionCountNotReached(session, sessionQuestions.size());
+        requireQuestionCountNotReached(session, countProjectQuestions(sessionQuestions));
 
         List<String> askedQuestionTexts = sessionQuestions.stream()
                 .filter(q -> !q.getQuestionId().equals(question.getQuestionId()))
@@ -297,7 +297,11 @@ public class InterviewSessionService {
     private void autoCompleteIfLastQuestionAnswered(InterviewSession session, Question question) {
         Integer limit = session.getQuestionCount();
         Integer sequenceNo = question.getSequenceNo();
-        boolean isLastQuestion = limit != null && sequenceNo != null && sequenceNo >= limit;
+        // INTRO 질문은 항상 sequenceNo=1로 먼저 생성되므로, 그 뒤 프로젝트 질문들의 순번은
+        // sequenceNo - 1이다. questionCount는 INTRO를 제외한 프로젝트 질문 개수를 센다.
+        boolean isProjectQuestion = !INTRO_QUESTION_TYPE.equals(question.getQuestionType());
+        boolean isLastQuestion =
+                limit != null && sequenceNo != null && isProjectQuestion && (sequenceNo - 1) >= limit;
         if (session.getStatus() == SessionStatus.IN_PROGRESS && isLastQuestion) {
             session.setStatus(SessionStatus.COMPLETED);
             session.setEndedAt(LocalDateTime.now());
@@ -354,12 +358,20 @@ public class InterviewSessionService {
         }
     }
 
+    // INTRO 질문은 questionCount에 포함되지 않는 별도 질문이라, 질문 개수 관련 체크에서는
+    // 항상 이렇게 걸러낸 "프로젝트 질문" 개수만 센다.
+    private int countProjectQuestions(List<Question> questions) {
+        return (int) questions.stream()
+                .filter(q -> !INTRO_QUESTION_TYPE.equals(q.getQuestionType()))
+                .count();
+    }
+
     // 세션 생성 시 questionCount를 지정하지 않았으면(null) 개수를 제한하지 않는다.
-    // 지정했다면, 이미 그 개수만큼 질문이 나온 세션에서는 새 질문을 더 생성할 수 없다 -
+    // 지정했다면, 이미 그 개수만큼 프로젝트 질문이 나온 세션에서는 새 질문을 더 생성할 수 없다 -
     // 이 시점에서는 completeSession()을 호출해서 면접을 종료해야 한다.
-    private void requireQuestionCountNotReached(InterviewSession session, int currentQuestionCount) {
+    private void requireQuestionCountNotReached(InterviewSession session, int currentProjectQuestionCount) {
         Integer limit = session.getQuestionCount();
-        if (limit != null && currentQuestionCount >= limit) {
+        if (limit != null && currentProjectQuestionCount >= limit) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "설정한 질문 개수(" + limit + "개)에 도달했습니다. 면접을 종료해주세요.");
         }

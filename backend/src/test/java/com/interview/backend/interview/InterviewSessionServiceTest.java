@@ -562,8 +562,10 @@ class InterviewSessionServiceTest {
     void addAnswerAutoCompletesSessionWhenAnsweringTheLastQuestion() {
         InterviewSession session = session(1L, 100L, 5L);
         session.setQuestionCount(2);
+        // INTRO 질문이 항상 sequenceNo=1을 차지하므로, questionCount=2일 때 "2번째(마지막)
+        // 프로젝트 질문"의 실제 sequenceNo는 3이다 (INTRO=1, 프로젝트 질문 1=2, 질문 2=3).
         Question lastQuestion = question(10L, 5L, "성능은 어떻게 측정했나요?");
-        lastQuestion.setSequenceNo(2);
+        lastQuestion.setSequenceNo(3);
 
         when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
         when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
@@ -578,6 +580,52 @@ class InterviewSessionServiceTest {
 
         assertThat(session.getStatus()).isEqualTo(SessionStatus.COMPLETED);
         assertThat(session.getEndedAt()).isNotNull();
+    }
+
+    // 실제 앱 플로우에서 재현됐던 버그: INTRO 질문을 questionCount에 포함해서 세면
+    // 마지막 프로젝트 질문보다 하나 먼저(= questionCount - 1번째 프로젝트 질문에서) 완료돼버렸다.
+    @Test
+    void addAnswerDoesNotAutoCompleteOnSecondToLastProjectQuestionWhenIntroIsCounted() {
+        InterviewSession session = session(1L, 100L, 5L);
+        session.setQuestionCount(5);
+        // INTRO=1, 프로젝트 질문 1~4 = sequenceNo 2~5. 질문 개수 5개 중 4번째 프로젝트
+        // 질문(sequenceNo=5)에 답했을 뿐이니 아직 완료되면 안 된다.
+        Question fourthProjectQuestion = question(10L, 5L, "네 번째 질문");
+        fourthProjectQuestion.setSequenceNo(5);
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(questionRepository.findById(10L)).thenReturn(Optional.of(fourthProjectQuestion));
+        when(answerRepository.findByQuestionId(10L)).thenReturn(List.of());
+        when(answerRepository.save(any(Answer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        sessionService().addAnswer(
+                "a@example.com", 5L, 10L,
+                new com.interview.backend.interview.dto.CreateAnswerRequest("답변", null, null, null));
+
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.IN_PROGRESS);
+        assertThat(session.getEndedAt()).isNull();
+    }
+
+    @Test
+    void addAnswerDoesNotAutoCompleteWhenAnsweringTheIntroQuestionItself() {
+        InterviewSession session = session(1L, 100L, 5L);
+        session.setQuestionCount(1);
+        Question intro = new Question(5L, null, 1, "자기소개 부탁드립니다.", "INTRO", null);
+        intro.setQuestionId(10L);
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(questionRepository.findById(10L)).thenReturn(Optional.of(intro));
+        when(answerRepository.findByQuestionId(10L)).thenReturn(List.of());
+        when(answerRepository.save(any(Answer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        sessionService().addAnswer(
+                "a@example.com", 5L, 10L,
+                new com.interview.backend.interview.dto.CreateAnswerRequest("답변", null, null, null));
+
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.IN_PROGRESS);
+        assertThat(session.getEndedAt()).isNull();
     }
 
     @Test
