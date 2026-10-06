@@ -29,7 +29,7 @@ function CardFrame({
       ref={innerRef}
       className="h-full overflow-hidden rounded-3xl border border-stroke/70 bg-white shadow-[0_16px_40px_-28px_rgba(30,18,64,0.35)] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_28px_48px_-28px_rgba(108,78,224,0.45)]"
     >
-      <div className="flex h-[190px] items-center justify-center overflow-hidden bg-gradient-to-b from-[#FAF8FF] to-[#F1ECFF]">
+      <div className="flex h-[210px] items-center justify-center overflow-hidden bg-gradient-to-b from-[#FAF8FF] to-[#F1ECFF]">
         {children}
       </div>
       <div className="px-6 pb-6 pt-5">
@@ -314,8 +314,8 @@ function QuestionCard() {
             </span>
           ))}
         </div>
-        <div className="min-h-[134px] rounded-[14px] border border-stroke bg-white px-3.5 py-[13px] text-[11.5px] leading-relaxed shadow-[0_10px_24px_-14px_rgba(30,18,64,0.35)]">
-          <div className="mb-1.5 flex items-start justify-between gap-2">
+        <div className="rounded-[14px] border border-stroke bg-white px-3.5 py-[13px] text-[11.5px] leading-relaxed shadow-[0_10px_24px_-14px_rgba(30,18,64,0.35)]">
+          <div className="mb-1.5 flex min-h-[34px] items-start justify-between gap-2">
             <div className="flex-1 font-bold text-ink">{current.q}</div>
             <span className="whitespace-nowrap rounded-full bg-card px-[9px] py-0.5 text-[10.5px] font-bold text-brand">
               {score} / 30
@@ -326,7 +326,7 @@ function QuestionCard() {
             {answer.length > 0 && answer.length < fullAnswer.length && <Caret />}
           </div>
           <div
-            className={`flex gap-1.5 text-ink transition-opacity duration-500 ${
+            className={`flex min-h-[34px] gap-1.5 text-ink transition-opacity duration-500 ${
               feedbackOn ? 'opacity-100' : 'opacity-0'
             }`}
           >
@@ -341,7 +341,7 @@ function QuestionCard() {
 
 export default function ReportPreviewSection() {
   return (
-    <section className="relative mx-auto max-w-[960px] px-[6vw] pb-24 pt-10">
+    <section className="relative mx-auto max-w-[960px] px-[6vw] pb-14 pt-10">
       <div
         className="pointer-events-none absolute inset-x-0 -top-10 bottom-0 -z-10"
         style={{

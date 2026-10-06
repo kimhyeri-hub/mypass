@@ -182,39 +182,39 @@ export default function InterviewResult() {
           </span>
         </div>
 
-        <div className="mb-7 flex items-center gap-8 rounded-[28px] bg-gradient-to-r from-brand-dark via-brand to-[#8A6BF2] px-11 py-10 text-white shadow-[0_20px_40px_-20px_rgba(108,78,224,0.55)]">
+        <div className="mb-7 flex items-center gap-8 rounded-[28px] border border-[#EDE8FA] bg-gradient-to-br from-white to-[#F6F2FF] px-11 py-10 text-ink shadow-[0_20px_40px_-28px_rgba(108,78,224,0.35)]">
           <div
             className="relative flex h-[120px] w-[120px] flex-shrink-0 items-center justify-center rounded-full"
             style={{
-              background: `conic-gradient(#fff 0% ${overallScore ?? 0}%, rgba(255,255,255,0.25) ${overallScore ?? 0}% 100%)`,
+              background: `conic-gradient(#6C4EE0 0% ${overallScore ?? 0}%, #E9E3FB ${overallScore ?? 0}% 100%)`,
             }}
           >
-            <div className="absolute inset-[9px] rounded-full bg-brand-dark" />
+            <div className="absolute inset-[9px] rounded-full bg-white" />
             <div className="relative z-10 text-center">
-              <div className="text-[30px] font-extrabold leading-none">{overallScore ?? '—'}</div>
-              <div className="mt-0.5 text-[11px] opacity-75">/ 100점</div>
+              <div className="text-[30px] font-extrabold leading-none text-brand">{overallScore ?? '—'}</div>
+              <div className="mt-0.5 text-[11px] text-muted">/ 100점</div>
             </div>
           </div>
           <div>
             <div className="mb-2 font-serif text-[22px] font-bold">{headline(overallScore)}</div>
-            <p className="m-0 max-w-[360px] whitespace-pre-line text-[13.5px] leading-relaxed text-[#E3DBFA]">
+            <p className="m-0 max-w-[360px] whitespace-pre-line text-[13.5px] leading-relaxed text-[#4A4266]">
               {current.summaryText ?? '아직 AI 총평이 없어요.'}
             </p>
             <div className="mt-4 flex gap-5">
-              <div className="text-xs text-[#DCD3FA]">
-                <b className="block text-sm font-bold text-white">
+              <div className="text-xs text-muted">
+                <b className="block text-sm font-bold text-ink">
                   {formatDuration(current.startedAt, current.endedAt)}
                 </b>
                 소요 시간
               </div>
-              <div className="text-xs text-[#DCD3FA]">
-                <b className="block text-sm font-bold text-white">
+              <div className="text-xs text-muted">
+                <b className="block text-sm font-bold text-ink">
                   {answeredCount} / {questions.length}
                 </b>
                 답변 완료
               </div>
-              <div className="text-xs text-[#DCD3FA]">
-                <b className="block text-sm font-bold text-white">{followUpCount}개</b>꼬리질문
+              <div className="text-xs text-muted">
+                <b className="block text-sm font-bold text-ink">{followUpCount}개</b>꼬리질문
               </div>
             </div>
           </div>
