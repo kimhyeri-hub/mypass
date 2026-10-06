@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useInterviewSetup } from '../../context/InterviewSetupContext';
-import { createSession, generateQuestion } from '../../api/interview';
+import { createSession } from '../../api/interview';
 import { ApiError } from '../../api/client';
 
 export default function InterviewStarting() {
@@ -19,17 +19,27 @@ export default function InterviewStarting() {
       return;
     }
 
+    // 세션을 만들면 백엔드가 자기소개(INTRO) 질문을 자동으로 만들어서 함께 내려준다.
+    // 여기서 generateQuestion()을 따로 부르지 않는다 - 첫 화면은 INTRO여야 하고,
+    // 첫 프로젝트 질문은 INTRO에 답변한 직후에만 생성한다.
     createSession(data.projectId)
-      .then((session) => generateQuestion(session.sessionId).then((question) => ({ session, question })))
-      .then(({ session, question }) => {
+      .then((session) => {
+        const introQuestion = session.questions.find((q) => q.questionType === 'INTRO') ?? session.questions[0];
+        if (!introQuestion) {
+          throw new ApiError(500, '자기소개 질문을 찾을 수 없어요.');
+        }
         updateData({
           sessionId: session.sessionId,
-          firstQuestion: { questionId: question.questionId, questionText: question.questionText },
+          firstQuestion: {
+            questionId: introQuestion.questionId,
+            questionText: introQuestion.questionText,
+            questionType: introQuestion.questionType,
+          },
         });
         navigate(data.mode === 'live' ? '/interview/live' : '/interview');
       })
       .catch((err) => {
-        setError(err instanceof ApiError ? err.message : '첫 질문 생성에 실패했어요. 잠시 후 다시 시도해 주세요.');
+        setError(err instanceof ApiError ? err.message : '면접 세션을 시작하지 못했어요. 잠시 후 다시 시도해 주세요.');
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

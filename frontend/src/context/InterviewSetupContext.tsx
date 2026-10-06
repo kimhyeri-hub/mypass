@@ -14,7 +14,7 @@ export interface InterviewSetupData {
   mode: 'practice' | 'live';
   projectId: number | null;
   sessionId: number | null;
-  firstQuestion: { questionId: number; questionText: string } | null;
+  firstQuestion: { questionId: number; questionText: string; questionType: string | null } | null;
 }
 
 const defaultData: InterviewSetupData = {

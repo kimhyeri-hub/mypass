@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useInterviewSetup } from '../../context/InterviewSetupContext';
-import { completeSession, generateQuestion, submitAnswer } from '../../api/interview';
+import { completeSession, generateNextQuestion, generateQuestion, submitAnswer } from '../../api/interview';
+import type { QuestionResponse } from '../../api/interview';
 import { ApiError } from '../../api/client';
 import { useTextToSpeech } from '../../hooks/useTextToSpeech';
 import { useSpeechToText } from '../../hooks/useSpeechToText';
@@ -10,6 +11,11 @@ import ConfirmModal from '../../components/ConfirmModal';
 interface QuestionItem {
   questionId: number;
   text: string;
+  questionType: string | null;
+}
+
+function toQuestionItem(question: QuestionResponse): QuestionItem {
+  return { questionId: question.questionId, text: question.questionText, questionType: question.questionType };
 }
 
 export default function InterviewScreen() {
@@ -35,14 +41,20 @@ export default function InterviewScreen() {
       queueMicrotask(() => setError('면접 세션을 찾을 수 없어요. 면접 설정부터 다시 진행해 주세요.'));
       return;
     }
-    const { questionId, questionText } = data.firstQuestion;
-    queueMicrotask(() => setQuestions([{ questionId, text: questionText }]));
+    const { questionId, questionText, questionType } = data.firstQuestion;
+    queueMicrotask(() => setQuestions([{ questionId, text: questionText, questionType }]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const currentQuestion = questions[currentIndex];
-  const isLastQuestion = currentIndex + 1 >= data.questionCount;
-  const progressPercent = ((currentIndex + 1) / data.questionCount) * 100;
+  const isIntroQuestion = currentQuestion?.questionType === 'INTRO';
+  // INTRO는 questionCount/진행률에 포함하지 않는다 - 프로젝트 질문만 센다.
+  const projectQuestions = questions.filter((q) => q.questionType !== 'INTRO');
+  const currentProjectQuestionIndex = currentQuestion
+    ? projectQuestions.findIndex((q) => q.questionId === currentQuestion.questionId)
+    : -1;
+  const isLastQuestion = !isIntroQuestion && currentProjectQuestionIndex + 1 >= data.questionCount;
+  const progressPercent = isIntroQuestion ? 0 : ((currentProjectQuestionIndex + 1) / data.questionCount) * 100;
 
   // 질문이 바뀔 때마다 자동으로 읽어주고, 화면을 벗어나면 재생을 멈춘다.
   useEffect(() => {
@@ -78,7 +90,17 @@ export default function InterviewScreen() {
     setError('');
     setIsSubmitting(true);
     try {
-      await submitAnswer(data.sessionId, currentQuestion.questionId, { answerText: answer });
+      const submittedAnswer = await submitAnswer(data.sessionId, currentQuestion.questionId, { answerText: answer });
+
+      if (isIntroQuestion) {
+        // 자기소개 답변 직후에는 꼬리질문 판단(/next) 없이, 바로 첫 프로젝트 질문을 생성한다.
+        const firstProjectQuestion = await generateQuestion(data.sessionId);
+        setQuestions((prev) => [...prev, toQuestionItem(firstProjectQuestion)]);
+        setCurrentIndex((prev) => prev + 1);
+        setAnswer('');
+        setIsHintOpen(false);
+        return;
+      }
 
       if (isLastQuestion) {
         await completeSession(data.sessionId);
@@ -86,8 +108,10 @@ export default function InterviewScreen() {
         return;
       }
 
-      const nextQuestion = await generateQuestion(data.sessionId);
-      setQuestions((prev) => [...prev, { questionId: nextQuestion.questionId, text: nextQuestion.questionText }]);
+      const nextQuestion = await generateNextQuestion(
+        data.sessionId, currentQuestion.questionId, submittedAnswer.answerId,
+      );
+      setQuestions((prev) => [...prev, toQuestionItem(nextQuestion)]);
       setCurrentIndex((prev) => prev + 1);
       setAnswer('');
       setIsHintOpen(false);
@@ -127,7 +151,7 @@ export default function InterviewScreen() {
           />
         </div>
         <div className="whitespace-nowrap text-xs font-semibold text-muted">
-          질문 {currentIndex + 1} / {data.questionCount}
+          {isIntroQuestion ? '자기소개' : `질문 ${currentProjectQuestionIndex + 1} / ${data.questionCount}`}
         </div>
         <button
           type="button"

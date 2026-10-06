@@ -89,6 +89,20 @@ export async function generateQuestion(sessionId: number): Promise<QuestionRespo
   return apiJson<QuestionResponse>('POST', `/api/sessions/${sessionId}/questions/generate`);
 }
 
+// 방금 등록한 최종 답변(answerId)을 근거로 AI가 꼬리질문(FOLLOW_UP)을 이어갈지
+// 새 주제(NEW_TOPIC)로 넘어갈지 판단해서 다음 질문을 받아온다. 자기소개(INTRO) 질문
+// 답변 직후에는 호출하지 않는다 - 그때는 generateQuestion()으로 첫 프로젝트 질문을 받는다.
+export async function generateNextQuestion(
+  sessionId: number,
+  questionId: number,
+  answerId: number,
+): Promise<QuestionResponse> {
+  return apiJson<QuestionResponse>(
+    'POST',
+    `/api/sessions/${sessionId}/questions/${questionId}/answers/${answerId}/next`,
+  );
+}
+
 export interface SubmitAnswerPayload {
   answerText: string;
 }
