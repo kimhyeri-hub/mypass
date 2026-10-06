@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardHeader from '../components/DashboardHeader';
 import InterviewRow from '../components/InterviewRow';
+import ListSkeleton from '../components/ListSkeleton';
+import InlineError from '../components/InlineError';
 import { interviewHistory } from '../utils/interviewHistory';
 
 type ModeFilter = 'all' | 'practice' | 'live';
@@ -13,6 +15,20 @@ export default function InterviewHistoryList() {
   const [search, setSearch] = useState('');
   const [modeFilter, setModeFilter] = useState<ModeFilter>('all');
   const [page, setPage] = useState(1);
+
+  // TODO: 백엔드 연동 시 setTimeout 대신 실제 기록 조회 API를 호출하고,
+  // 실패하면 setLoadError(true)로 에러 배너를 보여주세요.
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading) return;
+    const timer = setTimeout(() => {
+      setLoadError(false);
+      setIsLoading(false);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [isLoading]);
 
   const filtered = useMemo(() => {
     const keyword = search.trim().toLowerCase();
@@ -88,7 +104,21 @@ export default function InterviewHistoryList() {
           ))}
         </div>
 
-        {pageItems.length > 0 ? (
+        {isLoading ? (
+          <div className="mb-6">
+            <ListSkeleton rows={PAGE_SIZE} />
+          </div>
+        ) : loadError ? (
+          <div className="mb-6">
+            <InlineError
+              message="면접 기록을 불러오지 못했어요."
+              onRetry={() => {
+                setLoadError(false);
+                setIsLoading(true);
+              }}
+            />
+          </div>
+        ) : pageItems.length > 0 ? (
           <div className="mb-6 overflow-hidden rounded-2xl border border-stroke bg-white">
             {pageItems.map((interview, index) => (
               <InterviewRow
@@ -109,7 +139,7 @@ export default function InterviewHistoryList() {
           </div>
         )}
 
-        {totalPages > 1 && (
+        {!isLoading && !loadError && totalPages > 1 && (
           <div className="flex items-center justify-center gap-1.5">
             <button
               type="button"

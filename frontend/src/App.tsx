@@ -15,6 +15,7 @@ import LiveInterviewScreen from './pages/interview/LiveInterviewScreen';
 import InterviewResult from './pages/interview/InterviewResult';
 import { InterviewSetupProvider } from './context/InterviewSetupContext';
 import FlowSidebar from './components/FlowSidebar';
+import NotFound from './pages/NotFound';
 
 // 면접 흐름(프로젝트 등록 ~ AI 면접관)에서 공통으로 쓰는 폼 데이터를
 // 하나의 Provider로 감싸서, 단계를 이동해도 값이 유지되도록 합니다.
@@ -72,6 +73,8 @@ export default function App() {
         {/* 마이페이지의 "다시보기"로 들어오는, 지난 면접의 결과 화면 */}
         <Route path="/interview/result/:id" element={<InterviewResult />} />
       </Route>
+
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }
