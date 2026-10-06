@@ -44,8 +44,9 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        // 프론트엔드(React+Vite) 개발 서버 주소. 배포된 프론트 주소가 생기면 여기에 추가한다.
-        config.setAllowedOrigins(List.of("http://localhost:5173"));
+        // 프론트엔드(React+Vite) 개발 서버 주소 + EC2에 배포된 프론트(nginx, 80번 포트) 주소.
+        // 탄력적 IP가 없어 EC2를 재시작하면 퍼블릭 IP가 바뀌므로, 그때는 아래 줄도 같이 갱신해야 한다.
+        config.setAllowedOrigins(List.of("http://localhost:5173", "http://54.180.25.26"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
 
