@@ -95,4 +95,10 @@ public class InterviewSessionController {
     ) {
         return ResponseEntity.ok(sessionService.completeSession(authentication.getName(), sessionId, request));
     }
+
+    // 세션의 실제 질문/최종 답변을 근거로 AI 최종 평가를 생성하고, 기존 complete와 같은 방식으로 저장한다.
+    @PostMapping("/{sessionId}/evaluate")
+    public ResponseEntity<SessionResponse> evaluateSession(Authentication authentication, @PathVariable Long sessionId) {
+        return ResponseEntity.ok(sessionService.evaluateSession(authentication.getName(), sessionId));
+    }
 }

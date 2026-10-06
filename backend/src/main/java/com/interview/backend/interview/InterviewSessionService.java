@@ -3,6 +3,7 @@ package com.interview.backend.interview;
 import com.interview.backend.ai.AiInterviewService;
 import com.interview.backend.ai.NextQuestionDecision;
 import com.interview.backend.ai.NextQuestionType;
+import com.interview.backend.ai.SessionEvaluation;
 import com.interview.backend.interview.dto.AnswerResponse;
 import com.interview.backend.interview.dto.CompleteSessionRequest;
 import com.interview.backend.interview.dto.CreateAnswerRequest;
@@ -22,6 +23,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -158,6 +161,13 @@ public class InterviewSessionService {
         List<Question> sessionQuestions = questionRepository.findBySessionIdOrderBySequenceNoAsc(sessionId);
         requireQuestionCountNotReached(session, countTowardLimit(sessionQuestions));
 
+        // 메타데이터는 업로드 문서를 보정하는 우선 근거일 뿐 PDF를 대체하지 않는다 -
+        // 업로드 문서 텍스트가 없으면 메타데이터가 있어도 기존처럼 질문을 생성하지 않는다.
+        if (collectDocumentText(session.getProjectId()).isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "질문을 생성할 프로젝트 자료가 없습니다. PDF를 먼저 업로드하세요.");
+        }
+
         String context = collectProjectContext(session.getProjectId());
 
         String questionText = aiInterviewService.generateQuestion(context, session.getJobRole(), session.getDifficulty());
@@ -251,11 +261,50 @@ public class InterviewSessionService {
         return depth;
     }
 
+    /**
+     * 질문 생성, 다음 질문(FOLLOW_UP/NEW_TOPIC), 평가가 공통으로 쓰는 프로젝트 컨텍스트.
+     * 사용자가 직접 입력한 프로젝트 메타데이터(우선 근거)와 업로드 문서 추출 텍스트(보조 근거)를
+     * 구역을 나눠 담는다. 값이 없는 메타데이터 필드와 비어 있는 구역은 출력하지 않고,
+     * 둘 다 없으면 빈 문자열을 돌려줘서 기존의 "자료 없음" 처리가 그대로 동작한다.
+     */
     private String collectProjectContext(Long projectId) {
+        List<String> sections = new ArrayList<>();
+
+        String metadata = projectRepository.findById(projectId)
+                .map(this::formatProjectMetadata)
+                .orElse("");
+        if (!metadata.isBlank()) {
+            sections.add("[프로젝트 메타데이터 - 우선 근거]\n" + metadata);
+        }
+
+        String documentText = collectDocumentText(projectId);
+        if (!documentText.isBlank()) {
+            sections.add("[업로드 문서 - 보조 근거]\n" + documentText);
+        }
+
+        return String.join("\n\n", sections);
+    }
+
+    private String collectDocumentText(Long projectId) {
         return projectFileRepository.findByProjectId(projectId).stream()
                 .map(ProjectFile::getExtractedText)
                 .filter(text -> text != null && !text.isBlank())
                 .collect(Collectors.joining("\n\n"));
+    }
+
+    private String formatProjectMetadata(Project project) {
+        List<String> lines = new ArrayList<>();
+        addMetadataLine(lines, "프로젝트명", project.getTitle());
+        addMetadataLine(lines, "설명", project.getDescription());
+        addMetadataLine(lines, "기술 스택", project.getTechStack());
+        addMetadataLine(lines, "담당 역할", project.getRole());
+        return String.join("\n", lines);
+    }
+
+    private void addMetadataLine(List<String> lines, String label, String value) {
+        if (value != null && !value.isBlank()) {
+            lines.add(label + ": " + value.trim());
+        }
     }
 
     @Transactional
@@ -338,6 +387,54 @@ public class InterviewSessionService {
         sessionRepository.save(session);
 
         return getSessionDetail(userEmail, sessionId);
+    }
+
+    /**
+     * 세션에서 실제로 나온 질문과 최종 답변(isFinal=true)을 모아 AI 최종 평가를 받고,
+     * 그 결과를 기존 completeSession()으로 저장한다 - 저장/상태 전환 로직은 completeSession()을 그대로 쓴다.
+     * 최종 답변이 하나도 없으면 AI를 호출하지 않고 400을 반환한다.
+     * AI 호출이 실패하면 completeSession()까지 가지 않으므로 세션은 변경되지 않는다.
+     */
+    @Transactional
+    public SessionResponse evaluateSession(String userEmail, Long sessionId) {
+        User user = getUser(userEmail);
+        InterviewSession session = getOwnedSession(user, sessionId);
+
+        List<AiInterviewService.EvaluationItem> items = questionRepository.findBySessionIdOrderBySequenceNoAsc(sessionId).stream()
+                .map(question -> new AiInterviewService.EvaluationItem(
+                        isIntroQuestion(question),
+                        question.getParentQuestionId() != null,
+                        question.getQuestionText(),
+                        findFinalAnswerText(question.getQuestionId())))
+                .toList();
+
+        boolean hasAnyFinalAnswer = items.stream()
+                .anyMatch(item -> item.finalAnswerText() != null && !item.finalAnswerText().isBlank());
+        if (!hasAnyFinalAnswer) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "평가할 최종 답변이 없습니다. 질문에 답변한 뒤 평가를 요청해주세요.");
+        }
+
+        SessionEvaluation evaluation = aiInterviewService.evaluateSession(collectProjectContext(session.getProjectId()), items);
+
+        CompleteSessionRequest request = new CompleteSessionRequest(
+                evaluation.overallContentScore(),
+                evaluation.overallDeliveryScore(),
+                evaluation.logicScore(),
+                evaluation.specificityScore(),
+                evaluation.strengths(),
+                evaluation.weaknesses(),
+                evaluation.summaryText());
+        return completeSession(userEmail, sessionId, request);
+    }
+
+    // 같은 질문에 다시 답하면 이전 답변은 isFinal=false가 되므로 최종 답변은 보통 하나뿐이다.
+    // 데이터 이상으로 여러 개라면 가장 마지막 시도(attemptNo가 가장 큰 것)를 쓴다.
+    private String findFinalAnswerText(Long questionId) {
+        return answerRepository.findByQuestionId(questionId).stream()
+                .filter(answer -> Boolean.TRUE.equals(answer.getIsFinal()))
+                .max(Comparator.comparing(Answer::getAttemptNo, Comparator.nullsFirst(Comparator.naturalOrder())))
+                .map(Answer::getAnswerText)
+                .orElse(null);
     }
 
     private User getUser(String email) {

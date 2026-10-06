@@ -23,6 +23,9 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -678,5 +681,275 @@ class InterviewSessionServiceTest {
                 .isInstanceOf(ResponseStatusException.class)
                 .extracting(e -> ((ResponseStatusException) e).getStatusCode())
                 .isEqualTo(org.springframework.http.HttpStatus.FORBIDDEN);
+    }
+
+    private static final String EVALUATION_JSON = """
+            {"overallContentScore": 82, "overallDeliveryScore": 75, "logicScore": 70, "specificityScore": 64,
+             "strengths": "강점", "weaknesses": "약점", "summaryText": "총평"}
+            """;
+
+    @Test
+    void evaluateSessionUsesOnlyFinalAnswersAndSavesResultThroughCompleteSession() {
+        InterviewSession session = session(1L, 100L, 5L);
+        Question intro = introQuestion(8L, 5L);
+        Question projectQuestion = question(9L, 5L, "OCR은 어떤 걸 쓰셨나요?");
+        projectQuestion.setSequenceNo(2);
+        Question followUp = new Question(5L, 9L, 3, "성능은 어떻게 비교했나요?", "AI", null);
+        followUp.setQuestionId(10L);
+
+        Answer introAnswer = finalAnswer(30L, 8L, "백엔드를 맡은 김개발입니다.");
+        Answer oldAttempt = finalAnswer(31L, 9L, "Tesseract를 썼습니다.");
+        oldAttempt.setIsFinal(false);
+        Answer finalAttempt = new Answer(9L, 2, "AWS Textract를 사용했습니다.", null, null, null);
+        finalAttempt.setAnswerId(32L);
+        ProjectFile file = new ProjectFile(100L, "resume.pdf", "application/pdf", "key");
+        file.setExtractedText("Textract 기반 OCR 프로젝트");
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(questionRepository.findBySessionIdOrderBySequenceNoAsc(5L)).thenReturn(List.of(intro, projectQuestion, followUp));
+        when(answerRepository.findByQuestionId(8L)).thenReturn(List.of(introAnswer));
+        when(answerRepository.findByQuestionId(9L)).thenReturn(List.of(oldAttempt, finalAttempt));
+        when(answerRepository.findByQuestionId(10L)).thenReturn(List.of());
+        when(projectFileRepository.findByProjectId(100L)).thenReturn(List.of(file));
+        when(aiService.generateQuestion(any())).thenReturn(EVALUATION_JSON);
+        when(sessionRepository.save(any(InterviewSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        SessionResponse response = sessionService().evaluateSession("a@example.com", 5L);
+
+        verify(aiService).generateQuestion(argThat(prompt ->
+                prompt.contains("Textract 기반 OCR 프로젝트")
+                        && prompt.contains("[자기소개] 자기소개해주세요")
+                        && prompt.contains("답변: 백엔드를 맡은 김개발입니다.")
+                        && prompt.contains("답변: AWS Textract를 사용했습니다.")
+                        && !prompt.contains("Tesseract를 썼습니다.")
+                        && prompt.contains("[꼬리질문] 성능은 어떻게 비교했나요?")
+                        && prompt.contains("답변: (답변 없음)")));
+
+        assertThat(response.status()).isEqualTo(SessionStatus.COMPLETED);
+        assertThat(response.overallContentScore()).isEqualTo(82f);
+        assertThat(response.overallDeliveryScore()).isEqualTo(75f);
+        assertThat(response.logicScore()).isEqualTo(70f);
+        assertThat(response.specificityScore()).isEqualTo(64f);
+        assertThat(session.getStrengths()).isEqualTo("강점");
+        assertThat(session.getWeaknesses()).isEqualTo("약점");
+        assertThat(session.getSummaryText()).isEqualTo("총평");
+        assertThat(session.getEndedAt()).isNotNull();
+    }
+
+    @Test
+    void evaluateSessionReturnsBadRequestWithoutCallingAiWhenThereIsNoFinalAnswer() {
+        InterviewSession session = session(1L, 100L, 5L);
+        Question intro = introQuestion(8L, 5L);
+        Answer notFinal = finalAnswer(30L, 8L, "안녕하세요");
+        notFinal.setIsFinal(false);
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(questionRepository.findBySessionIdOrderBySequenceNoAsc(5L)).thenReturn(List.of(intro));
+        when(answerRepository.findByQuestionId(8L)).thenReturn(List.of(notFinal));
+
+        assertThatThrownBy(() -> sessionService().evaluateSession("a@example.com", 5L))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(e -> ((ResponseStatusException) e).getStatusCode())
+                .isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
+        verify(aiService, never()).generateQuestion(any());
+        verify(sessionRepository, never()).save(any());
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.IN_PROGRESS);
+    }
+
+    @Test
+    void evaluateSessionLeavesSessionUnchangedWhenAiResponseIsInvalid() {
+        InterviewSession session = session(1L, 100L, 5L);
+        Question intro = introQuestion(8L, 5L);
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(questionRepository.findBySessionIdOrderBySequenceNoAsc(5L)).thenReturn(List.of(intro));
+        when(answerRepository.findByQuestionId(8L)).thenReturn(List.of(finalAnswer(30L, 8L, "백엔드 개발자 김개발입니다.")));
+        when(projectFileRepository.findByProjectId(100L)).thenReturn(List.of());
+        when(aiService.generateQuestion(any())).thenReturn("{\"overallContentScore\": 80}");
+
+        assertThatThrownBy(() -> sessionService().evaluateSession("a@example.com", 5L))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(e -> ((ResponseStatusException) e).getStatusCode())
+                .isEqualTo(org.springframework.http.HttpStatus.BAD_GATEWAY);
+        verify(sessionRepository, never()).save(any());
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.IN_PROGRESS);
+        assertThat(session.getSummaryText()).isNull();
+    }
+
+    @Test
+    void rejectsEvaluateSessionForAnotherUsersSession() {
+        InterviewSession othersSession = session(2L, 100L, 5L);
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(othersSession));
+
+        assertThatThrownBy(() -> sessionService().evaluateSession("a@example.com", 5L))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(e -> ((ResponseStatusException) e).getStatusCode())
+                .isEqualTo(org.springframework.http.HttpStatus.FORBIDDEN);
+        verify(aiService, never()).generateQuestion(any());
+    }
+
+    private Project yaksookProject(String description, String techStack, String role) {
+        Project project = new Project(1L, "약쏘옥", description, techStack, role, null, null);
+        project.setProjectId(100L);
+        return project;
+    }
+
+    private ProjectFile planDocument() {
+        ProjectFile file = new ProjectFile(100L, "약쏘옥 계획서.pdf", "application/pdf", "key");
+        file.setExtractedText("* Backend (FastAPI): 비즈니스 로직 처리 및 스케줄링 알고리즘 연산");
+        return file;
+    }
+
+    private String capturePromptOfGenerateQuestion(Project project) {
+        InterviewSession session = session(1L, 100L, 5L);
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(questionRepository.findBySessionIdOrderBySequenceNoAsc(5L)).thenReturn(List.of(introQuestion(1L, 5L)));
+        when(projectRepository.findById(100L)).thenReturn(Optional.ofNullable(project));
+        when(projectFileRepository.findByProjectId(100L)).thenReturn(List.of(planDocument()));
+        when(aiService.generateQuestion(any())).thenReturn("질문");
+        when(questionRepository.save(any(Question.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        sessionService().generateQuestion("a@example.com", 5L);
+
+        org.mockito.ArgumentCaptor<String> captor = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(aiService).generateQuestion(captor.capture());
+        return captor.getValue();
+    }
+
+    @Test
+    void generateQuestionContextIncludesMetadataAsPrimarySourceAndDocumentAsSecondary() {
+        String prompt = capturePromptOfGenerateQuestion(yaksookProject("약 충돌 서비스", "react, java spring boot", "백엔드"));
+
+        assertThat(prompt).contains("""
+                [프로젝트 메타데이터 - 우선 근거]
+                프로젝트명: 약쏘옥
+                설명: 약 충돌 서비스
+                기술 스택: react, java spring boot
+                담당 역할: 백엔드""");
+        assertThat(prompt).contains("[업로드 문서 - 보조 근거]\n* Backend (FastAPI)");
+        assertThat(prompt.indexOf("[프로젝트 메타데이터 - 우선 근거]"))
+                .isLessThan(prompt.indexOf("[업로드 문서 - 보조 근거]"));
+    }
+
+    @Test
+    void nullOrBlankMetadataFieldsAreOmittedFromContext() {
+        String prompt = capturePromptOfGenerateQuestion(yaksookProject(null, "   ", "백엔드"));
+
+        assertThat(prompt).contains("[프로젝트 메타데이터 - 우선 근거]\n프로젝트명: 약쏘옥\n담당 역할: 백엔드");
+        assertThat(prompt).doesNotContain("설명:").doesNotContain("기술 스택:").doesNotContain("null");
+    }
+
+    @Test
+    void metadataSectionIsOmittedWhenAllMetadataFieldsAreEmpty() {
+        Project emptyProject = new Project(1L, null, null, null, null, null, null);
+        emptyProject.setProjectId(100L);
+
+        String prompt = capturePromptOfGenerateQuestion(emptyProject);
+
+        assertThat(prompt).doesNotContain("[프로젝트 메타데이터 - 우선 근거]");
+        assertThat(prompt).contains("[업로드 문서 - 보조 근거]\n* Backend (FastAPI)");
+    }
+
+    @Test
+    void generateQuestionStillReturnsBadRequestWithoutCallingAiWhenOnlyMetadataExists() {
+        InterviewSession session = session(1L, 100L, 5L);
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(questionRepository.findBySessionIdOrderBySequenceNoAsc(5L)).thenReturn(List.of(introQuestion(1L, 5L)));
+        when(projectFileRepository.findByProjectId(100L)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> sessionService().generateQuestion("a@example.com", 5L))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(e -> {
+                    ResponseStatusException ex = (ResponseStatusException) e;
+                    assertThat(ex.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
+                    assertThat(ex.getReason()).contains("PDF를 먼저 업로드하세요");
+                });
+        verify(aiService, never()).generateQuestion(any());
+    }
+
+    @Test
+    void nextQuestionContextIncludesSameMetadataAndDocumentSections() {
+        InterviewSession session = session(1L, 100L, 5L);
+        Question currentQuestion = question(10L, 5L, "OCR은 어떤 걸 쓰셨나요?");
+        Answer answer = finalAnswer(20L, 10L, "Google Vision을 사용했습니다.");
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(questionRepository.findById(10L)).thenReturn(Optional.of(currentQuestion));
+        when(answerRepository.findById(20L)).thenReturn(Optional.of(answer));
+        when(questionRepository.findBySessionIdOrderBySequenceNoAsc(5L)).thenReturn(List.of(currentQuestion));
+        when(projectRepository.findById(100L)).thenReturn(Optional.of(yaksookProject("약 충돌 서비스", "react, java spring boot", "백엔드")));
+        when(projectFileRepository.findByProjectId(100L)).thenReturn(List.of(planDocument()));
+        when(aiService.generateQuestion(any()))
+                .thenReturn("{\"type\": \"FOLLOW_UP\", \"question\": \"Vision API 응답은 어떻게 정제했나요?\"}");
+        when(questionRepository.save(any(Question.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        sessionService().generateNextQuestion("a@example.com", 5L, 10L, 20L);
+
+        verify(aiService).generateQuestion(argThat(prompt ->
+                prompt.contains("[프로젝트 메타데이터 - 우선 근거]\n프로젝트명: 약쏘옥")
+                        && prompt.contains("기술 스택: react, java spring boot")
+                        && prompt.contains("[업로드 문서 - 보조 근거]\n* Backend (FastAPI)")));
+    }
+
+    @Test
+    void forcedNewTopicContextIncludesSameMetadataAndDocumentSections() {
+        InterviewSession session = session(1L, 100L, 5L);
+        Question root = question(1L, 5L, "OCR은 어떤 걸 쓰셨나요?");
+        Question followUp1 = new Question(5L, 1L, 2, "Vision API 응답은 어떻게 정제했나요?", "AI", null);
+        followUp1.setQuestionId(2L);
+        Question followUp2 = new Question(5L, 2L, 3, "정제 실패는 어떻게 처리했나요?", "AI", null);
+        followUp2.setQuestionId(3L);
+        Answer answer = finalAnswer(30L, 3L, "GPT로 재정제했습니다.");
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(questionRepository.findById(3L)).thenReturn(Optional.of(followUp2));
+        when(questionRepository.findById(2L)).thenReturn(Optional.of(followUp1));
+        when(questionRepository.findById(1L)).thenReturn(Optional.of(root));
+        when(answerRepository.findById(30L)).thenReturn(Optional.of(answer));
+        when(questionRepository.findBySessionIdOrderBySequenceNoAsc(5L)).thenReturn(List.of(root, followUp1, followUp2));
+        when(projectRepository.findById(100L)).thenReturn(Optional.of(yaksookProject("약 충돌 서비스", "react, java spring boot", "백엔드")));
+        when(projectFileRepository.findByProjectId(100L)).thenReturn(List.of(planDocument()));
+        when(aiService.generateQuestion(any())).thenReturn("DB 스키마는 어떻게 설계했나요?");
+        when(questionRepository.save(any(Question.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        sessionService().generateNextQuestion("a@example.com", 5L, 3L, 30L);
+
+        verify(aiService).generateQuestion(argThat(prompt ->
+                prompt.contains("새로운 주제의 기술면접 질문을 하나 생성하세요")
+                        && prompt.contains("[프로젝트 메타데이터 - 우선 근거]\n프로젝트명: 약쏘옥")
+                        && prompt.contains("[업로드 문서 - 보조 근거]\n* Backend (FastAPI)")));
+    }
+
+    @Test
+    void evaluateContextIncludesSameMetadataAndDocumentSections() {
+        InterviewSession session = session(1L, 100L, 5L);
+        Question intro = introQuestion(8L, 5L);
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(questionRepository.findBySessionIdOrderBySequenceNoAsc(5L)).thenReturn(List.of(intro));
+        when(answerRepository.findByQuestionId(8L)).thenReturn(List.of(finalAnswer(30L, 8L, "백엔드를 맡았습니다.")));
+        when(projectRepository.findById(100L)).thenReturn(Optional.of(yaksookProject("약 충돌 서비스", "react, java spring boot", "백엔드")));
+        when(projectFileRepository.findByProjectId(100L)).thenReturn(List.of(planDocument()));
+        when(aiService.generateQuestion(any())).thenReturn(EVALUATION_JSON);
+        when(sessionRepository.save(any(InterviewSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        sessionService().evaluateSession("a@example.com", 5L);
+
+        verify(aiService).generateQuestion(argThat(prompt ->
+                prompt.contains("[프로젝트 메타데이터 - 우선 근거]\n프로젝트명: 약쏘옥")
+                        && prompt.contains("담당 역할: 백엔드")
+                        && prompt.contains("[업로드 문서 - 보조 근거]\n* Backend (FastAPI)")));
     }
 }
