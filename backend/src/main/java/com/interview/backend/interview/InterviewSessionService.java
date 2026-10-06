@@ -101,8 +101,24 @@ public class InterviewSessionService {
     public SessionResponse getSessionDetail(String userEmail, Long sessionId) {
         User user = getUser(userEmail);
         InterviewSession session = getOwnedSession(user, sessionId);
+        return buildSessionResponse(session);
+    }
 
-        List<QuestionResponse> questions = questionRepository.findBySessionIdOrderBySequenceNoAsc(sessionId).stream()
+    /**
+     * 마이페이지의 "결과 리포트" 화면 전용 조회. getSessionDetail()과 응답 형태(SessionResponse)는
+     * 같지만, 아직 진행 중인 세션의 결과를 잘못 보여주는 일이 없도록 COMPLETED 상태만 허용한다.
+     */
+    public SessionResponse getSessionResult(String userEmail, Long sessionId) {
+        User user = getUser(userEmail);
+        InterviewSession session = getOwnedSession(user, sessionId);
+        if (session.getStatus() != SessionStatus.COMPLETED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "아직 진행 중인 면접입니다. 완료 후 결과를 조회해주세요.");
+        }
+        return buildSessionResponse(session);
+    }
+
+    private SessionResponse buildSessionResponse(InterviewSession session) {
+        List<QuestionResponse> questions = questionRepository.findBySessionIdOrderBySequenceNoAsc(session.getSessionId()).stream()
                 .map(question -> {
                     List<AnswerResponse> answers = answerRepository.findByQuestionId(question.getQuestionId()).stream()
                             .map(AnswerResponse::from)
@@ -118,6 +134,7 @@ public class InterviewSessionService {
     public QuestionResponse addQuestion(String userEmail, Long sessionId, CreateQuestionRequest request) {
         User user = getUser(userEmail);
         InterviewSession session = getOwnedSession(user, sessionId);
+        requireInProgress(session);
 
         Question question = new Question(
                 session.getSessionId(),
@@ -136,12 +153,16 @@ public class InterviewSessionService {
     public QuestionResponse generateQuestion(String userEmail, Long sessionId) {
         User user = getUser(userEmail);
         InterviewSession session = getOwnedSession(user, sessionId);
+        requireInProgress(session);
+
+        List<Question> sessionQuestions = questionRepository.findBySessionIdOrderBySequenceNoAsc(sessionId);
+        requireQuestionCountNotReached(session, countTowardLimit(sessionQuestions));
 
         String context = collectProjectContext(session.getProjectId());
 
         String questionText = aiInterviewService.generateQuestion(context, session.getJobRole(), session.getDifficulty());
 
-        int nextSequenceNo = questionRepository.findBySessionIdOrderBySequenceNoAsc(sessionId).size() + 1;
+        int nextSequenceNo = sessionQuestions.size() + 1;
         Question question = new Question(sessionId, null, nextSequenceNo, questionText, AI_QUESTION_TYPE, null);
         questionRepository.save(question);
 
@@ -163,6 +184,7 @@ public class InterviewSessionService {
     public QuestionResponse generateNextQuestion(String userEmail, Long sessionId, Long questionId, Long answerId) {
         User user = getUser(userEmail);
         InterviewSession session = getOwnedSession(user, sessionId);
+        requireInProgress(session);
 
         Question question = questionRepository.findById(questionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "질문을 찾을 수 없습니다."));
@@ -180,6 +202,8 @@ public class InterviewSessionService {
         }
 
         List<Question> sessionQuestions = questionRepository.findBySessionIdOrderBySequenceNoAsc(sessionId);
+        requireQuestionCountNotReached(session, countTowardLimit(sessionQuestions));
+
         List<String> askedQuestionTexts = sessionQuestions.stream()
                 .filter(q -> !q.getQuestionId().equals(question.getQuestionId()))
                 .map(Question::getQuestionText)
@@ -238,6 +262,7 @@ public class InterviewSessionService {
     public AnswerResponse addAnswer(String userEmail, Long sessionId, Long questionId, CreateAnswerRequest request) {
         User user = getUser(userEmail);
         InterviewSession session = getOwnedSession(user, sessionId);
+        requireInProgress(session);
 
         Question question = questionRepository.findById(questionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "질문을 찾을 수 없습니다."));
@@ -258,19 +283,55 @@ public class InterviewSessionService {
                 request.videoUrl(),
                 request.durationSec()
         );
+        AnswerResponse response = AnswerResponse.from(answerRepository.save(answer));
 
-        return AnswerResponse.from(answerRepository.save(answer));
+        autoCompleteIfLastQuestionAnswered(session, question);
+
+        return response;
     }
 
+    // 방금 답변한 질문이 세션에 설정된 questionCount만큼의 마지막 질문이면, 클라이언트가
+    // 별도로 completeSession()을 호출하지 않아도 여기서 바로 면접을 종료 상태로 전환한다.
+    // 총평/점수는 아직 안 채워진 채로 남고(전부 null), 이후 completeSession()이 그 값들만
+    // 채워 넣는다 - 그래서 completeSession()은 상태 전이가 아니라 "평가 결과 첨부" 역할이 된다.
+    // 자기소개(INTRO) 질문은 questionCount에 포함하지 않으므로 마지막 질문이 될 수 없다.
+    private void autoCompleteIfLastQuestionAnswered(InterviewSession session, Question question) {
+        Integer limit = session.getQuestionCount();
+        Integer sequenceNo = question.getSequenceNo();
+        if (limit == null || sequenceNo == null || isIntroQuestion(question)) {
+            return;
+        }
+        long countedUpToThisQuestion = questionRepository.findBySessionIdOrderBySequenceNoAsc(session.getSessionId()).stream()
+                .filter(q -> q.getSequenceNo() != null && q.getSequenceNo() <= sequenceNo)
+                .filter(q -> !isIntroQuestion(q))
+                .count();
+        boolean isLastQuestion = countedUpToThisQuestion >= limit;
+        if (session.getStatus() == SessionStatus.IN_PROGRESS && isLastQuestion) {
+            session.setStatus(SessionStatus.COMPLETED);
+            session.setEndedAt(LocalDateTime.now());
+            sessionRepository.save(session);
+        }
+    }
+
+    /**
+     * 면접 결과(총평/점수)를 세션에 저장한다. questionCount에 도달해 이미 자동 종료됐든,
+     * 아직 진행 중인 세션을 중간에 끝내는 것이든 상관없이 호출할 수 있다 - 상태를 IN_PROGRESS에서
+     * COMPLETED로 "전이"시키는 게 이 메서드의 역할이 아니라, 평가 결과를 채워 넣고 아직 COMPLETED가
+     * 아니면 그때 COMPLETED로 만드는 것뿐이라 여러 번 불러도 안전하다(마지막 호출 값으로 덮어써짐).
+     */
     @Transactional
     public SessionResponse completeSession(String userEmail, Long sessionId, CompleteSessionRequest request) {
         User user = getUser(userEmail);
         InterviewSession session = getOwnedSession(user, sessionId);
 
-        session.setStatus("COMPLETED");
-        session.setEndedAt(LocalDateTime.now());
+        session.setStatus(SessionStatus.COMPLETED);
+        if (session.getEndedAt() == null) {
+            session.setEndedAt(LocalDateTime.now());
+        }
         session.setOverallContentScore(request.overallContentScore());
         session.setOverallDeliveryScore(request.overallDeliveryScore());
+        session.setLogicScore(request.logicScore());
+        session.setSpecificityScore(request.specificityScore());
         session.setStrengths(request.strengths());
         session.setWeaknesses(request.weaknesses());
         session.setSummaryText(request.summaryText());
@@ -291,5 +352,33 @@ public class InterviewSessionService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인의 면접 세션만 접근할 수 있습니다.");
         }
         return session;
+    }
+
+    // 질문 생성/답변 제출/세션 종료 등 진행 중인 면접에서만 의미가 있는 동작을 시도할 때 호출한다.
+    // 이미 종료된 세션에 대한 요청은 조회(getSessionDetail, getMySessions)를 제외하고 전부 막는다.
+    private void requireInProgress(InterviewSession session) {
+        if (session.getStatus() != SessionStatus.IN_PROGRESS) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 종료된 면접 세션입니다.");
+        }
+    }
+
+    // 자기소개(INTRO) 질문은 면접 시작 시 자동으로 들어가는 질문이라 questionCount에 포함하지 않는다.
+    private int countTowardLimit(List<Question> sessionQuestions) {
+        return (int) sessionQuestions.stream().filter(q -> !isIntroQuestion(q)).count();
+    }
+
+    private boolean isIntroQuestion(Question question) {
+        return INTRO_QUESTION_TYPE.equals(question.getQuestionType());
+    }
+
+    // 세션 생성 시 questionCount를 지정하지 않았으면(null) 개수를 제한하지 않는다.
+    // 지정했다면, 이미 그 개수만큼 질문이 나온 세션에서는 새 질문을 더 생성할 수 없다 -
+    // 이 시점에서는 completeSession()을 호출해서 면접을 종료해야 한다.
+    private void requireQuestionCountNotReached(InterviewSession session, int currentQuestionCount) {
+        Integer limit = session.getQuestionCount();
+        if (limit != null && currentQuestionCount >= limit) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "설정한 질문 개수(" + limit + "개)에 도달했습니다. 면접을 종료해주세요.");
+        }
     }
 }

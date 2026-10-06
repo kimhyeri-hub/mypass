@@ -44,6 +44,11 @@ public class InterviewSessionController {
         return ResponseEntity.ok(sessionService.getSessionDetail(authentication.getName(), sessionId));
     }
 
+    @GetMapping("/{sessionId}/result")
+    public ResponseEntity<SessionResponse> getSessionResult(Authentication authentication, @PathVariable Long sessionId) {
+        return ResponseEntity.ok(sessionService.getSessionResult(authentication.getName(), sessionId));
+    }
+
     @PostMapping("/{sessionId}/questions")
     public ResponseEntity<QuestionResponse> addQuestion(
             Authentication authentication,
