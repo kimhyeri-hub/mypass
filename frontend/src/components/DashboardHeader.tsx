@@ -3,16 +3,25 @@ import { useNavigate } from 'react-router-dom';
 import Logo from './Logo';
 import ConfirmModal from './ConfirmModal';
 
-interface DashboardHeaderProps {
-  userInitial: string;
-}
-
-export default function DashboardHeader({ userInitial }: DashboardHeaderProps) {
+export default function DashboardHeader() {
   const navigate = useNavigate();
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
+  // 로그인 시 Login.tsx가 localStorage에 저장해둔 사용자 이름에서 첫 글자만 사용한다.
+  let userInitial = '?';
+  try {
+    const stored = localStorage.getItem('mypass_user');
+    if (stored) {
+      const user = JSON.parse(stored) as { name?: string };
+      if (user.name) userInitial = user.name.charAt(0);
+    }
+  } catch {
+    // localStorage를 못 읽는 환경이면 기본값('?')을 그대로 둔다.
+  }
+
   const handleConfirmLogout = () => {
-    // TODO: 실제 로그아웃 처리(토큰 삭제 등)는 백엔드 연동 시 여기에 추가
+    localStorage.removeItem('mypass_token');
+    localStorage.removeItem('mypass_user');
     setIsLogoutModalOpen(false);
     navigate('/');
   };

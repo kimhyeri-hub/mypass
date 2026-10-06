@@ -1,16 +1,72 @@
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardHeader from '../components/DashboardHeader';
 import StatCard from '../components/StatCard';
 import InterviewRow from '../components/InterviewRow';
 import { ResumeCard, AddResumeCard } from '../components/ResumeCard';
-import { interviewHistory } from '../utils/interviewHistory';
+import ListSkeleton from '../components/ListSkeleton';
+import InlineError from '../components/InlineError';
+import { getMySessions } from '../api/interview';
+import type { SessionResponse } from '../api/interview';
+import { JOB_ROLE_LABELS } from '../utils/jobRoleLabels';
 import { initialResumes } from '../utils/resumes';
 
 const RECENT_COUNT = 3;
 
+function getUserName(): string {
+  try {
+    const stored = localStorage.getItem('mypass_user');
+    if (stored) {
+      const user = JSON.parse(stored) as { name?: string };
+      if (user.name) return user.name;
+    }
+  } catch {
+    // localStorage를 못 읽는 환경이면 기본값을 그대로 둔다.
+  }
+  return '회원';
+}
+
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export default function MyPage() {
   const navigate = useNavigate();
-  const recentInterviews = interviewHistory.slice(0, RECENT_COUNT);
+  const userName = useMemo(() => getUserName(), []);
+
+  const [sessions, setSessions] = useState<SessionResponse[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
+
+  const loadSessions = () => {
+    queueMicrotask(() => setLoadError(false));
+    getMySessions()
+      .then(setSessions)
+      .catch(() => setLoadError(true));
+  };
+
+  useEffect(() => {
+    loadSessions();
+  }, []);
+
+  const completedSessions = useMemo(
+    () =>
+      (sessions ?? [])
+        .filter((s) => s.status === 'COMPLETED')
+        .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()),
+    [sessions],
+  );
+
+  const thisMonthCount = useMemo(() => {
+    const now = new Date();
+    return (sessions ?? []).filter((s) => {
+      const started = new Date(s.startedAt);
+      return started.getFullYear() === now.getFullYear() && started.getMonth() === now.getMonth();
+    }).length;
+  }, [sessions]);
+
+  const recentInterviews = completedSessions.slice(0, RECENT_COUNT);
+  const isLoading = sessions === null && !loadError;
 
   const handleStartInterview = () => {
     // 새 모의면접 흐름 시작: 프로젝트 등록 → 자료 업로드 → 분석 중 → 면접 설정 → 면접 시작 준비 → AI 면접관
@@ -21,8 +77,8 @@ export default function MyPage() {
     navigate('/mypage/history');
   };
 
-  const handleReview = (interviewId: string) => {
-    navigate(`/interview/result/${interviewId}`);
+  const handleReview = (sessionId: number) => {
+    navigate(`/interview/result/${sessionId}`);
   };
 
   const handleManageResumes = () => {
@@ -31,13 +87,13 @@ export default function MyPage() {
 
   return (
     <div className="min-h-screen bg-canvas">
-      <DashboardHeader userInitial="홍" />
+      <DashboardHeader />
 
       <div className="mx-auto max-w-[1040px] px-8 py-10">
         <div className="mb-8 flex items-center justify-between gap-6 rounded-3xl bg-gradient-to-r from-brand-dark via-brand to-[#8A6BF2] px-10 py-9 text-white shadow-[0_20px_40px_-20px_rgba(108,78,224,0.55)]">
           <div>
             <div className="font-serif text-2xl font-bold tracking-tight">
-              안녕하세요, 홍길동님
+              안녕하세요, {userName}님
             </div>
             <p className="mt-1.5 text-sm text-[#DCD3FA]">오늘도 실전처럼 연습해볼까요</p>
           </div>
@@ -51,8 +107,8 @@ export default function MyPage() {
         </div>
 
         <div className="mb-10 grid grid-cols-3 gap-4">
-          <StatCard label="총 면접 횟수" value={`${interviewHistory.length}회`} icon="ti-history" />
-          <StatCard label="이번 달 연습" value="4회" icon="ti-calendar-stats" />
+          <StatCard label="총 면접 횟수" value={`${completedSessions.length}회`} icon="ti-history" />
+          <StatCard label="이번 달 연습" value={`${thisMonthCount}회`} icon="ti-calendar-stats" />
           <StatCard label="등록한 이력서" value={`${initialResumes.length}개`} icon="ti-file-text" />
         </div>
 
@@ -62,17 +118,25 @@ export default function MyPage() {
             전체 기록 보기
           </button>
         </div>
-        {recentInterviews.length > 0 ? (
+        {isLoading ? (
+          <div className="mb-10">
+            <ListSkeleton rows={RECENT_COUNT} />
+          </div>
+        ) : loadError ? (
+          <div className="mb-10">
+            <InlineError message="최근 면접 기록을 불러오지 못했어요." onRetry={loadSessions} />
+          </div>
+        ) : recentInterviews.length > 0 ? (
           <div className="mb-10 overflow-hidden rounded-2xl border border-stroke bg-white">
-            {recentInterviews.map((interview, index) => (
+            {recentInterviews.map((session, index) => (
               <InterviewRow
-                key={interview.id}
-                title={interview.title}
-                date={interview.date}
-                questionCount={interview.questionCount}
-                mode={interview.mode}
-                score={interview.score}
-                onReview={() => handleReview(interview.id)}
+                key={session.sessionId}
+                title={session.jobRole ? JOB_ROLE_LABELS[session.jobRole] : '모의면접'}
+                date={formatDate(session.startedAt)}
+                questionCount={session.questionCount ?? session.questions.length}
+                mode={session.mode === 'PRACTICE' ? 'practice' : undefined}
+                score={session.overallContentScore ?? undefined}
+                onReview={() => handleReview(session.sessionId)}
                 isLast={index === recentInterviews.length - 1}
               />
             ))}

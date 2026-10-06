@@ -1,4 +1,4 @@
-import { apiForm, apiJson } from './client';
+import { apiForm, apiGet, apiJson } from './client';
 
 export interface ProjectFileResponse {
   fileId: number;
@@ -67,22 +67,44 @@ export interface QuestionResponse {
   answers: AnswerResponse[];
 }
 
+export type JobRole = 'BACKEND' | 'FRONTEND' | 'FULLSTACK' | 'AI' | 'DATA';
+export type Difficulty = 'EASY' | 'NORMAL' | 'HARD';
+export type InterviewMode = 'PRACTICE';
+
 export interface SessionResponse {
   sessionId: number;
   projectId: number;
-  status: string;
+  status: 'IN_PROGRESS' | 'COMPLETED';
   startedAt: string;
   endedAt: string | null;
   overallContentScore: number | null;
   overallDeliveryScore: number | null;
+  logicScore: number | null;
+  specificityScore: number | null;
   strengths: string | null;
   weaknesses: string | null;
   summaryText: string | null;
+  jobRole: JobRole | null;
+  difficulty: Difficulty | null;
+  questionCount: number | null;
+  mode: InterviewMode | null;
   questions: QuestionResponse[];
 }
 
-export async function createSession(projectId: number): Promise<SessionResponse> {
-  return apiJson<SessionResponse>('POST', '/api/sessions', { projectId });
+export interface CreateSessionPayload {
+  projectId: number;
+  jobRole?: JobRole;
+  difficulty?: Difficulty;
+  questionCount?: number;
+  mode?: InterviewMode;
+}
+
+export async function createSession(payload: CreateSessionPayload): Promise<SessionResponse> {
+  return apiJson<SessionResponse>('POST', '/api/sessions', payload);
+}
+
+export async function getMySessions(): Promise<SessionResponse[]> {
+  return apiGet<SessionResponse[]>('/api/sessions');
 }
 
 export async function generateQuestion(sessionId: number): Promise<QuestionResponse> {

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useInterviewSetup } from '../../context/InterviewSetupContext';
 import { createSession } from '../../api/interview';
 import { ApiError } from '../../api/client';
+import { JOB_ROLE_TO_API, DIFFICULTY_TO_API } from '../../utils/jobRoleLabels';
 
 export default function InterviewStarting() {
   const navigate = useNavigate();
@@ -22,7 +23,14 @@ export default function InterviewStarting() {
     // 세션을 만들면 백엔드가 자기소개(INTRO) 질문을 자동으로 만들어서 함께 내려준다.
     // 여기서 generateQuestion()을 따로 부르지 않는다 - 첫 화면은 INTRO여야 하고,
     // 첫 프로젝트 질문은 INTRO에 답변한 직후에만 생성한다.
-    createSession(data.projectId)
+    createSession({
+      projectId: data.projectId,
+      jobRole: JOB_ROLE_TO_API[data.jobRole],
+      difficulty: DIFFICULTY_TO_API[data.difficulty],
+      questionCount: data.questionCount,
+      // 백엔드 InterviewMode enum은 아직 PRACTICE만 있어서, 'live'는 보낼 값이 없어 생략한다.
+      mode: data.mode === 'practice' ? 'PRACTICE' : undefined,
+    })
       .then((session) => {
         const introQuestion = session.questions.find((q) => q.questionType === 'INTRO') ?? session.questions[0];
         if (!introQuestion) {
