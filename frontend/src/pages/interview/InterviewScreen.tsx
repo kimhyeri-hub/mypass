@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useInterviewSetup } from '../../context/InterviewSetupContext';
-import { completeSession, generateNextQuestion, generateQuestion, submitAnswer } from '../../api/interview';
+import { evaluateSession, generateNextQuestion, generateQuestion, submitAnswer } from '../../api/interview';
 import type { QuestionResponse } from '../../api/interview';
 import { ApiError } from '../../api/client';
 import { useTextToSpeech } from '../../hooks/useTextToSpeech';
 import { useSpeechToText } from '../../hooks/useSpeechToText';
 import ConfirmModal from '../../components/ConfirmModal';
+import ErrorState from '../../components/ErrorState';
 
 interface QuestionItem {
   questionId: number;
@@ -32,6 +33,10 @@ export default function InterviewScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isHintOpen, setIsHintOpen] = useState(false);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
+  // 마지막 답변 저장 이후의 AI 평가 단계. 'failed'에서 다시 시도하면 답변은 다시 제출하지 않고 평가만 다시 요청한다.
+  const [evaluationStatus, setEvaluationStatus] = useState<'idle' | 'evaluating' | 'failed'>('idle');
+  const [evaluationError, setEvaluationError] = useState<{ message: string; code?: number } | null>(null);
+  const evaluatingRef = useRef(false);
 
   useEffect(() => {
     if (startedRef.current) return;
@@ -79,6 +84,29 @@ export default function InterviewScreen() {
     }
   };
 
+  // 마지막 질문 답변이 저장된 뒤에만 호출한다. 평가가 끝나기 전에는 결과 화면으로 이동하지 않고,
+  // 결과는 URL의 sessionId로도 다시 조회할 수 있게 /interview/result/:id로 이동한다.
+  const runEvaluation = async (sessionId: number) => {
+    if (evaluatingRef.current) return;
+    evaluatingRef.current = true;
+    stopSpeaking();
+    setEvaluationError(null);
+    setEvaluationStatus('evaluating');
+    try {
+      const evaluated = await evaluateSession(sessionId);
+      navigate(`/interview/result/${sessionId}`, { state: { session: evaluated } });
+    } catch (err) {
+      setEvaluationError(
+        err instanceof ApiError
+          ? { message: err.message, code: err.status }
+          : { message: 'AI 평가 요청에 실패했어요.' },
+      );
+      setEvaluationStatus('failed');
+    } finally {
+      evaluatingRef.current = false;
+    }
+  };
+
   const handleSubmitAnswer = async () => {
     if (!answer.trim()) {
       setError('답변을 입력하거나 음성으로 답변해 주세요.');
@@ -103,8 +131,9 @@ export default function InterviewScreen() {
       }
 
       if (isLastQuestion) {
-        await completeSession(data.sessionId);
-        navigate('/interview/result');
+        // 마지막 답변이 저장되면 백엔드가 questionCount를 확인해 세션을 자동 종료한다.
+        // 빈 /complete는 호출하지 않고, 바로 AI 평가(/evaluate)를 실행한다.
+        await runEvaluation(data.sessionId);
         return;
       }
 
@@ -121,6 +150,47 @@ export default function InterviewScreen() {
       setIsSubmitting(false);
     }
   };
+
+  if (evaluationStatus === 'evaluating') {
+    return (
+      <div className="flex flex-col items-center px-6 py-16 text-center">
+        <div className="mb-7 h-16 w-16 animate-spin rounded-full border-[3px] border-[#E2DEF5] border-t-brand" />
+        <div className="mb-2 text-lg font-bold text-ink">면접 결과를 분석하고 있어요</div>
+        <p className="mb-8 max-w-[320px] text-sm leading-relaxed text-muted">
+          답변을 바탕으로 AI 피드백을 생성하고 있어요. 잠시만 기다려주세요.
+        </p>
+
+        <div className="w-[300px] text-left">
+          <div className="flex items-center gap-2.5 border-b border-dashed border-stroke py-2.5">
+            <i className="ti ti-circle-check-filled text-base text-brand" aria-hidden="true" />
+            <span className="text-[13px] text-[#3A3355]">답변 저장 완료</span>
+          </div>
+          <div className="flex items-center gap-2.5 border-b border-dashed border-stroke py-2.5">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#E2DEF5] border-t-brand" />
+            <span className="text-[13px] text-[#3A3355]">역량별 점수 산출 중</span>
+          </div>
+          <div className="flex items-center gap-2.5 py-2.5">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#E2DEF5] border-t-brand" />
+            <span className="text-[13px] text-[#3A3355]">AI 총평 생성 중</span>
+          </div>
+        </div>
+
+        <div className="mt-7 text-[11.5px] text-muted">보통 10~20초 정도 걸려요. 이 화면을 닫지 말아주세요.</div>
+      </div>
+    );
+  }
+
+  if (evaluationStatus === 'failed' && data.sessionId) {
+    const sessionId = data.sessionId;
+    return (
+      <ErrorState
+        title="면접 결과를 분석하지 못했어요"
+        description={`${evaluationError?.message ?? 'AI 평가 요청에 실패했어요.'} 답변은 모두 저장되어 있어요. 다시 시도하면 평가만 다시 요청해요.`}
+        code={evaluationError?.code}
+        onRetry={() => runEvaluation(sessionId)}
+      />
+    );
+  }
 
   if (!currentQuestion) {
     return (

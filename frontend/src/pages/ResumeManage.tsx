@@ -1,6 +1,8 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardHeader from '../components/DashboardHeader';
+import ListSkeleton from '../components/ListSkeleton';
+import InlineError from '../components/InlineError';
 import { initialResumes } from '../utils/resumes';
 import type { ResumeItem } from '../utils/resumes';
 
@@ -9,6 +11,20 @@ export default function ResumeManage() {
   const [resumes, setResumes] = useState<ResumeItem[]>(initialResumes);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const replaceTargetId = useRef<string | null>(null);
+
+  // TODO: 백엔드 연동 시 setTimeout 대신 실제 이력서 목록 조회 API를 호출하고,
+  // 실패하면 setLoadError(true)로 에러 배너를 보여주세요.
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading) return;
+    const timer = setTimeout(() => {
+      setLoadError(false);
+      setIsLoading(false);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [isLoading]);
 
   const handleFileSelected = (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -99,7 +115,21 @@ export default function ResumeManage() {
           </button>
         </div>
 
-        {resumes.length > 0 ? (
+        {isLoading ? (
+          <div className="mb-4">
+            <ListSkeleton rows={2} />
+          </div>
+        ) : loadError ? (
+          <div className="mb-4">
+            <InlineError
+              message="이력서 목록을 불러오지 못했어요."
+              onRetry={() => {
+                setLoadError(false);
+                setIsLoading(true);
+              }}
+            />
+          </div>
+        ) : resumes.length > 0 ? (
           <div className="mb-4 flex flex-col gap-3.5">
             {resumes.map((resume) => (
               <div

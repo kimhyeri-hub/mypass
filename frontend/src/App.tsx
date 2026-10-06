@@ -5,6 +5,7 @@ import Signup from './pages/Signup';
 import MyPage from './pages/MyPage';
 import InterviewHistoryList from './pages/InterviewHistoryList';
 import ResumeManage from './pages/ResumeManage';
+import NotFound from './pages/NotFound';
 import ProjectRegister from './pages/interview/ProjectRegister';
 import UploadResume from './pages/interview/UploadResume';
 import Analyzing from './pages/interview/Analyzing';
@@ -72,6 +73,8 @@ export default function App() {
         {/* 마이페이지의 "다시보기"로 들어오는, 지난 면접의 결과 화면 */}
         <Route path="/interview/result/:id" element={<InterviewResult />} />
       </Route>
+
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }

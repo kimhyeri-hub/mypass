@@ -3,11 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useInterviewSetup } from '../../context/InterviewSetupContext';
 import { createSession } from '../../api/interview';
 import { ApiError } from '../../api/client';
+import ErrorState from '../../components/ErrorState';
+import { toSessionDifficulty, toSessionJobRole, toSessionMode } from '../../utils/sessionSettings';
 
 export default function InterviewStarting() {
   const navigate = useNavigate();
   const { data, updateData } = useInterviewSetup();
   const [error, setError] = useState('');
+  const [errorCode, setErrorCode] = useState<number | undefined>(undefined);
   const startedRef = useRef(false);
 
   useEffect(() => {
@@ -22,7 +25,15 @@ export default function InterviewStarting() {
     // 세션을 만들면 백엔드가 자기소개(INTRO) 질문을 자동으로 만들어서 함께 내려준다.
     // 여기서 generateQuestion()을 따로 부르지 않는다 - 첫 화면은 INTRO여야 하고,
     // 첫 프로젝트 질문은 INTRO에 답변한 직후에만 생성한다.
-    createSession(data.projectId)
+    // 설정 화면에서 고른 직무/난이도/질문 개수를 그대로 세션에 저장해야
+    // 백엔드의 질문 생성 관점과 questionCount 자동 종료가 프론트 진행률과 같은 기준으로 동작한다.
+    createSession({
+      projectId: data.projectId,
+      jobRole: toSessionJobRole(data.jobRole),
+      difficulty: toSessionDifficulty(data.difficulty),
+      questionCount: data.questionCount,
+      mode: toSessionMode(data.mode),
+    })
       .then((session) => {
         const introQuestion = session.questions.find((q) => q.questionType === 'INTRO') ?? session.questions[0];
         if (!introQuestion) {
@@ -39,23 +50,22 @@ export default function InterviewStarting() {
         navigate(data.mode === 'live' ? '/interview/live' : '/interview');
       })
       .catch((err) => {
+        setErrorCode(err instanceof ApiError ? err.status : undefined);
         setError(err instanceof ApiError ? err.message : '면접 세션을 시작하지 못했어요. 잠시 후 다시 시도해 주세요.');
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (error) {
+    // 면접 설정 값은 Context(메모리)에만 있어서 새로고침하면 사라진다 -
+    // 다시 시도는 설정 화면으로 돌아가서 설정을 유지한 채 다시 시작하게 한다.
     return (
-      <div className="flex flex-col items-center py-24 text-center">
-        <p className="mb-4 max-w-[280px] text-sm text-red-500">{error}</p>
-        <button
-          type="button"
-          onClick={() => navigate('/interview/setup')}
-          className="rounded-lg border border-stroke px-5 py-2.5 text-sm text-[#3A3355]"
-        >
-          ← 이전으로 돌아가기
-        </button>
-      </div>
+      <ErrorState
+        title="면접을 시작하지 못했어요"
+        description={error}
+        code={errorCode}
+        onRetry={() => navigate('/interview/setup')}
+      />
     );
   }
 

@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import FeatureCard from '../components/FeatureCard';
+import Reveal from '../components/Reveal';
+import HeroChatPreview from '../components/HeroChatPreview';
+import ReportPreviewSection from '../components/ReportPreviewSection';
 
 const steps = [
   {
@@ -24,85 +26,126 @@ const steps = [
 ];
 
 export default function Home() {
+  const scrollToHow = () => {
+    document.getElementById('how')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
-    <div>
+    <div className="overflow-x-hidden">
       <Navbar />
 
-      <header className="px-[6vw] pb-2 pt-[52px] text-center">
-        <h1 className="mx-auto max-w-[600px] font-sans text-[32px] font-extrabold leading-snug tracking-tight text-ink">
-          스펙으로 준비하는 면접은
-          <br />
-          이제 그만
-        </h1>
-        <p className="mx-auto mt-3.5 max-w-[420px] text-[15px] leading-relaxed text-muted">
-          이력서 하나로 실전 같은 질문을 받아보세요
-        </p>
-      </header>
-
-      <section className="mx-auto flex max-w-[760px] justify-center gap-4 px-[6vw] pb-11 pt-[30px]">
-        <FeatureCard
-          title="이력서 등록은 이제 그만 고민하지 마세요"
-          description="이력서를 올리면 나에게 맞는 질문이 도착해요."
-          ctaLabel="이력서 올리기"
-          ctaTo="/signup"
+      {/* 히어로: 왼쪽 문구 + 오른쪽 면접 진행 미리보기 */}
+      <header className="relative isolate mx-auto grid max-w-[1180px] items-center gap-12 px-[6vw] pb-16 pt-14 lg:grid-cols-[1.05fr_1fr] lg:pt-20">
+        <div
+          className="pointer-events-none absolute -left-20 -top-10 -z-10 h-[380px] w-[380px] animate-float rounded-full bg-[#CFC3FA] opacity-45 blur-[70px]"
+          aria-hidden="true"
         />
-        <FeatureCard
-          title={'간단한 전공 정보로\n맞춤 질문 진단'}
-          description="전공을 알려주면 딱 맞는 면접을 준비해드려요."
-          ctaLabel="모의면접 시작하기"
-          ctaTo="/login"
-          variant="outline"
+        <div
+          className="pointer-events-none absolute -bottom-16 -right-10 -z-10 h-[320px] w-[320px] animate-float rounded-full bg-[#E4DBFF] opacity-45 blur-[70px]"
+          style={{ animationDelay: '-6s' }}
+          aria-hidden="true"
         />
-      </section>
 
-      {/* 작동 방식 */}
-      <section className="mx-auto max-w-[920px] px-[6vw] py-9">
-        <div className="mx-auto mb-[30px] max-w-[460px] text-center">
-          <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-[11.5px] font-bold text-brand">
-            <i className="ti ti-route-2 text-sm" aria-hidden="true" />
-            작동 방식
+        <div className="text-center lg:text-left">
+          <span
+            className="mb-5 inline-flex animate-rise items-center gap-1.5 rounded-full bg-card px-3.5 py-[7px] text-[13px] font-bold text-brand"
+          >
+            <i className="ti ti-sparkles text-sm" aria-hidden="true" />
+            AI 모의면접
           </span>
-          <h2 className="text-[23px] font-extrabold tracking-tight text-ink">3단계면 준비 끝</h2>
-          <p className="mt-2 text-[13.5px] leading-relaxed text-muted">
-            복잡한 설정 없이, 이력서 하나로 나만의 면접이 만들어져요.
+          <h1
+            className="animate-rise font-sans text-[34px] font-extrabold leading-snug tracking-tight text-ink md:text-[44px]"
+            style={{ animationDelay: '0.1s' }}
+          >
+            스펙으로 준비하는 면접은
+            <br />
+            <em className="not-italic text-brand">이제 그만</em>
+          </h1>
+          <p
+            className="mt-5 animate-rise text-[15px] leading-relaxed text-muted md:text-[17px]"
+            style={{ animationDelay: '0.25s' }}
+          >
+            이력서 하나로 실전 같은 질문을 받아보세요.
+            <br />
+            내 경험을 읽고 꼬리질문까지 던지는 AI와 연습해요.
           </p>
+          <div
+            className="mt-8 flex animate-rise flex-wrap justify-center gap-3 lg:justify-start"
+            style={{ animationDelay: '0.4s' }}
+          >
+            <Link
+              to="/signup"
+              className="rounded-xl bg-brand px-[26px] py-[15px] text-[15px] font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-brand-dark hover:shadow-[0_10px_24px_-10px_rgba(108,78,224,0.6)]"
+            >
+              무료로 시작하기
+            </Link>
+            <button
+              type="button"
+              onClick={scrollToHow}
+              className="rounded-xl border-[1.5px] border-stroke bg-white px-[26px] py-[15px] text-[15px] font-bold text-ink transition-colors hover:border-brand hover:text-brand"
+            >
+              작동 방식 보기
+            </button>
+          </div>
         </div>
 
+        <HeroChatPreview />
+      </header>
+
+      {/* 작동 방식 */}
+      <section id="how" className="mx-auto max-w-[920px] px-[6vw] py-16">
+        <Reveal>
+          <div className="mx-auto mb-[30px] max-w-[460px] text-center">
+            <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-[11.5px] font-bold text-brand">
+              <i className="ti ti-route-2 text-sm" aria-hidden="true" />
+              작동 방식
+            </span>
+            <h2 className="text-[23px] font-extrabold tracking-tight text-ink">3단계면 준비 끝</h2>
+            <p className="mt-2 text-[13.5px] leading-relaxed text-muted">
+              복잡한 설정 없이, 이력서 하나로 나만의 면접이 만들어져요.
+            </p>
+          </div>
+        </Reveal>
+
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {steps.map((step) => (
-            <div
-              key={step.number}
-              className="rounded-[18px] border border-stroke bg-white p-[22px_18px] text-center"
-            >
-              <span className="mb-2.5 block font-serif text-xs font-bold text-brand">
-                {step.number}
-              </span>
-              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-card text-lg text-brand">
-                <i className={`ti ${step.icon}`} aria-hidden="true" />
+          {steps.map((step, index) => (
+            <Reveal key={step.number} delay={index * 150}>
+              <div className="group h-full rounded-[18px] border border-stroke bg-white p-[22px_18px] text-center transition-all duration-300 hover:-translate-y-2 hover:border-[#CFC3FA] hover:shadow-[0_24px_40px_-28px_rgba(108,78,224,0.5)]">
+                <span className="mb-2.5 block font-serif text-xs font-bold text-brand">
+                  {step.number}
+                </span>
+                <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-card text-lg text-brand transition-all duration-300 group-hover:-rotate-6 group-hover:scale-105 group-hover:bg-brand group-hover:text-white">
+                  <i className={`ti ${step.icon}`} aria-hidden="true" />
+                </div>
+                <h3 className="mb-1.5 text-sm font-bold text-ink">{step.title}</h3>
+                <p className="text-xs leading-relaxed text-muted">{step.description}</p>
               </div>
-              <h3 className="mb-1.5 text-sm font-bold text-ink">{step.title}</h3>
-              <p className="text-xs leading-relaxed text-muted">{step.description}</p>
-            </div>
+            </Reveal>
           ))}
         </div>
       </section>
 
+      {/* 분석 리포트 미리보기 */}
+      <ReportPreviewSection />
+
       {/* 하단 최종 CTA */}
       <section className="mx-auto max-w-[920px] px-[6vw] pb-16 pt-2">
-        <div className="rounded-[24px] bg-gradient-to-r from-brand-dark via-brand to-[#8A6BF2] px-[6vw] py-10 text-center text-white shadow-[0_20px_40px_-20px_rgba(108,78,224,0.55)]">
-          <h2 className="mb-2.5 font-serif text-[23px] font-bold">지금, 실전처럼 준비해보세요</h2>
-          <p className="mb-5 text-[13px] text-[#E3DBFA]">
-            이력서 한 장이면 충분해요. 가입은 1분이면 끝나요.
-          </p>
-          <Link
-            to="/signup"
-            className="inline-flex items-center gap-2 rounded-xl bg-white px-[26px] py-3.5 text-sm font-bold text-brand-dark shadow-[0_10px_20px_-8px_rgba(0,0,0,0.25)] hover:bg-[#F6F3FE]"
-          >
-            <i className="ti ti-arrow-right text-base" aria-hidden="true" />
-            무료로 시작하기
-          </Link>
-          <p className="mt-3 text-[11.5px] text-[#DCD3FA]">신용카드 등록 없이 바로 이용 가능해요</p>
-        </div>
+        <Reveal>
+          <div className="animate-grad-shift rounded-[24px] bg-gradient-to-r from-brand-dark via-brand to-[#8A6BF2] bg-[length:200%_200%] px-[6vw] py-10 text-center text-white shadow-[0_20px_40px_-20px_rgba(108,78,224,0.55)]">
+            <h2 className="mb-2.5 font-serif text-[23px] font-bold">지금, 실전처럼 준비해보세요</h2>
+            <p className="mb-5 text-[13px] text-[#E3DBFA]">
+              이력서 한 장이면 충분해요. 가입은 1분이면 끝나요.
+            </p>
+            <Link
+              to="/signup"
+              className="inline-flex items-center gap-2 rounded-xl bg-white px-[26px] py-3.5 text-sm font-bold text-brand-dark shadow-[0_10px_20px_-8px_rgba(0,0,0,0.25)] transition-all hover:-translate-y-0.5 hover:bg-[#F6F3FE]"
+            >
+              <i className="ti ti-arrow-right text-base" aria-hidden="true" />
+              무료로 시작하기
+            </Link>
+            <p className="mt-3 text-[11.5px] text-[#DCD3FA]">신용카드 등록 없이 바로 이용 가능해요</p>
+          </div>
+        </Reveal>
       </section>
     </div>
   );

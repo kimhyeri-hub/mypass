@@ -1,4 +1,4 @@
-import { apiForm, apiJson } from './client';
+import { apiForm, apiGet, apiJson } from './client';
 
 export interface ProjectFileResponse {
   fileId: number;
@@ -67,22 +67,44 @@ export interface QuestionResponse {
   answers: AnswerResponse[];
 }
 
+export type SessionStatus = 'IN_PROGRESS' | 'COMPLETED';
+export type SessionJobRole = 'BACKEND' | 'FRONTEND' | 'FULLSTACK' | 'AI' | 'DATA';
+export type SessionDifficulty = 'EASY' | 'NORMAL' | 'HARD';
+export type SessionMode = 'PRACTICE';
+
 export interface SessionResponse {
   sessionId: number;
   projectId: number;
-  status: string;
+  status: SessionStatus;
   startedAt: string;
   endedAt: string | null;
+  // AI 평가 점수(0~100). 평가 전이거나 평가 없이 종료된 세션이면 null이다.
   overallContentScore: number | null;
   overallDeliveryScore: number | null;
+  logicScore: number | null;
+  specificityScore: number | null;
   strengths: string | null;
   weaknesses: string | null;
   summaryText: string | null;
+  jobRole: SessionJobRole | null;
+  difficulty: SessionDifficulty | null;
+  questionCount: number | null;
+  mode: SessionMode | null;
   questions: QuestionResponse[];
 }
 
-export async function createSession(projectId: number): Promise<SessionResponse> {
-  return apiJson<SessionResponse>('POST', '/api/sessions', { projectId });
+// 백엔드 CreateSessionRequest와 같은 구조. projectId 외에는 선택값이라 없으면 세션에 null로 저장된다.
+export interface CreateSessionPayload {
+  projectId: number;
+  jobRole?: SessionJobRole;
+  difficulty?: SessionDifficulty;
+  // INTRO(자기소개)를 제외한 AI 질문 개수
+  questionCount?: number;
+  mode?: SessionMode;
+}
+
+export async function createSession(payload: CreateSessionPayload): Promise<SessionResponse> {
+  return apiJson<SessionResponse>('POST', '/api/sessions', payload);
 }
 
 export async function generateQuestion(sessionId: number): Promise<QuestionResponse> {
@@ -121,4 +143,15 @@ export async function submitAnswer(
 
 export async function completeSession(sessionId: number): Promise<SessionResponse> {
   return apiJson<SessionResponse>('POST', `/api/sessions/${sessionId}/complete`, {});
+}
+
+// 세션의 실제 질문과 최종 답변을 근거로 AI 최종 평가를 실행하고, 저장된 결과를 받아온다.
+// 마지막 질문 답변이 저장된 뒤에만 호출한다 - 면접 도중 호출하면 세션이 바로 종료된다.
+export async function evaluateSession(sessionId: number): Promise<SessionResponse> {
+  return apiJson<SessionResponse>('POST', `/api/sessions/${sessionId}/evaluate`);
+}
+
+// 종료(COMPLETED)된 세션의 저장된 결과를 조회한다. 진행 중인 세션이면 409.
+export async function getSessionResult(sessionId: number): Promise<SessionResponse> {
+  return apiGet<SessionResponse>(`/api/sessions/${sessionId}/result`);
 }
