@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-
 const TTS_URL = (import.meta.env.VITE_TTS_URL as string | undefined)?.replace(/\/$/, '');
 const SERVER_TIMEOUT_MS = 8000;
 
@@ -19,7 +18,6 @@ const PLAY_FAILED_MESSAGE = '질문을 음성으로 재생하지 못했어요. �
 
 const START_TIMEOUT_MS = 4000;
 
-
 function voiceScore(voice: SpeechSynthesisVoice): number {
   const name = voice.name.toLowerCase();
   let score = 0;
@@ -27,7 +25,7 @@ function voiceScore(voice: SpeechSynthesisVoice): number {
   if (name.includes('online')) score += 50;
   if (name.includes('google')) score += 40;
   if (name.includes('sunhi') || name.includes('injoon')) score += 20;
-  if (!voice.localService) score += 10; 
+  if (!voice.localService) score += 10;
   return score;
 }
 
@@ -47,16 +45,15 @@ export function useTextToSpeech() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [voiceGender, setVoiceGenderState] = useState<VoiceGender>(loadGender);
-  const genderRef = useRef<VoiceGender>(voiceGender); // speak()가 항상 최신 선택을 쓰도록
+  const genderRef = useRef<VoiceGender>(voiceGender);
 
   const currentRef = useRef<SpeechSynthesisUtterance | null>(null);
   const watchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 서버 음성 재생에 쓰는 것들 (요청 취소, 오디오, 임시 주소)
   const abortRef = useRef<AbortController | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const urlRef = useRef<string | null>(null);
-  const serverTokenRef = useRef(0); 
+  const serverTokenRef = useRef(0);
   const abortServer = () => {
     serverTokenRef.current += 1;
     abortRef.current?.abort();
@@ -98,7 +95,6 @@ export function useTextToSpeech() {
         return;
       }
 
-      // 이전 발화를 끊고 새로 시작해요. 끊긴 이전 발화의 이벤트는 아래 가드로 무시됩니다.
       clearWatchdog();
       window.speechSynthesis.cancel();
 
@@ -130,7 +126,6 @@ export function useTextToSpeech() {
       };
       utterance.onend = () => finish(false);
       utterance.onerror = (event) => {
-        // 우리가 직접 끊은 경우(cancel)는 실패가 아니에요.
         if (event.error === 'interrupted' || event.error === 'canceled') return;
         finish(true);
       };
@@ -147,7 +142,6 @@ export function useTextToSpeech() {
     [isSupported],
   );
 
-  // 서버(edge-tts) 음성을 받아 재생해요. 어떤 이유로든 실패하면 브라우저 목소리로 대신 읽어요.
   const speak = useCallback(
     (text: string, onDone?: () => void) => {
       if (!TTS_URL) {
@@ -157,7 +151,7 @@ export function useTextToSpeech() {
 
       stopSpeaking();
       setError(null);
-      const token = serverTokenRef.current; // stopSpeaking() 이후의 번호
+      const token = serverTokenRef.current;
       const controller = new AbortController();
       abortRef.current = controller;
       const timer = setTimeout(() => controller.abort(), SERVER_TIMEOUT_MS);
@@ -197,7 +191,7 @@ export function useTextToSpeech() {
         })
         .catch(() => {
           clearTimeout(timer);
-          fallback(); // 서버가 꺼져 있거나 느리거나 소리 재생이 막힌 경우
+          fallback();
         });
     },
     [speakBrowser, stopSpeaking],
@@ -209,7 +203,7 @@ export function useTextToSpeech() {
     try {
       localStorage.setItem(GENDER_KEY, gender);
     } catch {
-      // localStorage를 쓸 수 없는 환경이면 이번 화면에서만 선택을 유지한다.
+      genderRef.current = gender;
     }
   }, []);
 
@@ -223,6 +217,6 @@ export function useTextToSpeech() {
     isSupported,
     voiceGender,
     setVoiceGender,
-    hasServerVoice: Boolean(TTS_URL), // 서버 음성을 쓸 수 있을 때만 남/여 선택이 가능
+    hasServerVoice: Boolean(TTS_URL),
   };
 }
