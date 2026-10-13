@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import { Link } from 'react-router-dom';
+import LogoMark from './LogoMark';
 import Reveal from './Reveal';
 import { useVisibleLoop } from '../hooks/useVisibleLoop';
 import { sleep, tween, typeText } from '../utils/motion';
@@ -341,7 +342,7 @@ function QuestionCard() {
 
 export default function ReportPreviewSection() {
   return (
-    <section className="relative mx-auto max-w-[960px] px-[6vw] pb-14 pt-10">
+    <section className="relative mx-auto max-w-[960px] px-[6vw] pb-20 pt-10">
       <div
         className="pointer-events-none absolute inset-x-0 -top-10 bottom-0 -z-10"
         style={{
@@ -381,7 +382,7 @@ export default function ReportPreviewSection() {
 
       <Reveal>
         <div
-          className="mx-auto mt-7 flex max-w-[520px] items-center gap-4 rounded-[18px] border-[1.5px] border-transparent bg-white p-[12px_16px]"
+          className="mt-7 flex w-full items-center gap-4 rounded-[18px] border-[1.5px] border-transparent bg-white p-[12px_16px]"
           style={{
             backgroundImage:
               'linear-gradient(#fff, #fff), linear-gradient(90deg, #CFC3FA, #9EE4D2)',
@@ -389,8 +390,8 @@ export default function ReportPreviewSection() {
             backgroundClip: 'padding-box, border-box',
           }}
         >
-          <div className="flex h-[42px] w-[62px] items-center justify-center rounded-[9px] bg-card text-lg text-[#B6AED8]">
-            <i className="ti ti-lock" aria-hidden="true" />
+          <div className="flex h-[42px] w-[62px] items-center justify-center rounded-[9px] bg-card">
+            <LogoMark className="h-[32px] w-[32px]" />
           </div>
           <div className="flex-1 text-sm font-bold text-ink">
             전체 리포트가 궁금하다면?

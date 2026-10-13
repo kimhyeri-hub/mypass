@@ -189,7 +189,7 @@ export default function InterviewResult({ sample = false }: InterviewResultProps
             </div>
           </div>
           <div>
-            <div className="mb-2 font-serif text-[22px] font-bold">전반적으로 좋은 답변이었어요</div>
+            <div className="mb-2 font-sans text-[22px] font-bold">전반적으로 좋은 답변이었어요</div>
             <p className="m-0 max-w-[360px] text-[13.5px] leading-relaxed text-[#4A4266]">
               경험을 구체적인 사례로 풀어내는 능력이 돋보였어요. 다만 일부 답변에서 결론을 먼저
               말하는 구조를 연습하면 더 좋아질 것 같아요.

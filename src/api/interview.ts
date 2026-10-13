@@ -2,6 +2,12 @@
 // TODO: 배포 환경에 맞게 BASE_URL을 .env(VITE_API_BASE_URL)로 관리하세요. 지금은 로컬 개발 서버를 기본값으로 둡니다.
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
 
+// 백엔드 없이 화면만 확인하고 싶을 때: 프로젝트 루트에 .env.local 파일을 만들고
+// VITE_USE_MOCK=true 한 줄을 넣은 뒤 npm run dev를 다시 실행하세요. (끄려면 줄 삭제)
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
+const delay = (ms = 700) => new Promise((r) => setTimeout(r, ms));
+let mockCount = 0;
+
 export type QuestionType = 'INTRO' | 'NEW_TOPIC' | 'FOLLOW_UP';
 
 export interface SessionQuestion {
@@ -31,6 +37,16 @@ export interface CreateSessionResponse {
 export async function createSession(
   payload: CreateSessionRequest,
 ): Promise<CreateSessionResponse> {
+  if (USE_MOCK) {
+    await delay();
+    mockCount = 0;
+    return {
+      sessionId: 'mock-session',
+      questions: [
+        { questionId: 'q-intro', questionText: '간단한 자기소개 부탁드립니다.', questionType: 'INTRO' },
+      ],
+    };
+  }
   const res = await fetch(`${BASE_URL}/sessions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -54,6 +70,10 @@ export interface SubmitAnswerRequest {
 }
 
 export async function submitAnswer(payload: SubmitAnswerRequest): Promise<void> {
+  if (USE_MOCK) {
+    await delay(300);
+    return;
+  }
   const res = await fetch(`${BASE_URL}/answers`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -73,6 +93,14 @@ export interface GenerateQuestionResponse {
 }
 
 export async function generateQuestion(sessionId: string): Promise<GenerateQuestionResponse> {
+  if (USE_MOCK) {
+    await delay();
+    return {
+      questionId: 'q-1',
+      questionText: '프로젝트에서 가장 어려웠던 기술적 문제와 해결 과정을 설명해 주세요.',
+      questionType: 'NEW_TOPIC',
+    };
+  }
   const res = await fetch(`${BASE_URL}/sessions/${sessionId}/questions/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -102,6 +130,13 @@ export interface NextQuestionRequest {
 }
 
 export async function next(payload: NextQuestionRequest): Promise<NextQuestionResponse> {
+  if (USE_MOCK) {
+    await delay(900);
+    mockCount += 1;
+    return mockCount % 2 === 1
+      ? { type: 'FOLLOW_UP', question: '그 문제를 해결하기 위해 다른 대안은 고려하지 않으셨나요?' }
+      : { type: 'NEW_TOPIC', question: '팀 프로젝트에서 의견 충돌이 있었다면 어떻게 조율하셨나요?' };
+  }
   const res = await fetch(`${BASE_URL}/next`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
