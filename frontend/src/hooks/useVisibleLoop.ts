@@ -9,7 +9,10 @@ export function useVisibleLoop<T extends HTMLElement>(
 ) {
   const ref = useRef<T>(null);
   const playRef = useRef(play);
-  playRef.current = play;
+
+  useEffect(() => {
+    playRef.current = play;
+  });
 
   useEffect(() => {
     const el = ref.current;

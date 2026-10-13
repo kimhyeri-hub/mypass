@@ -9,7 +9,7 @@ export function useInView<T extends HTMLElement>(threshold = 0.2) {
     const el = ref.current;
     if (!el) return;
     if (typeof IntersectionObserver === 'undefined') {
-      setInView(true);
+      queueMicrotask(() => setInView(true));
       return;
     }
     const observer = new IntersectionObserver(

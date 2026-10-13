@@ -83,7 +83,7 @@ export default function ResumeManage() {
 
   return (
     <div className="min-h-screen bg-canvas">
-      <DashboardHeader userInitial="홍" />
+      <DashboardHeader />
 
       <input
         ref={fileInputRef}

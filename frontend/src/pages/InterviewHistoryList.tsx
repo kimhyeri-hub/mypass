@@ -4,11 +4,18 @@ import DashboardHeader from '../components/DashboardHeader';
 import InterviewRow from '../components/InterviewRow';
 import ListSkeleton from '../components/ListSkeleton';
 import InlineError from '../components/InlineError';
-import { interviewHistory } from '../utils/interviewHistory';
+import { getMySessions } from '../api/interview';
+import type { SessionResponse } from '../api/interview';
+import { JOB_ROLE_LABELS } from '../utils/jobRoleLabels';
 
 type ModeFilter = 'all' | 'practice' | 'live';
 
 const PAGE_SIZE = 4;
+
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+}
 
 export default function InterviewHistoryList() {
   const navigate = useNavigate();
@@ -16,31 +23,39 @@ export default function InterviewHistoryList() {
   const [modeFilter, setModeFilter] = useState<ModeFilter>('all');
   const [page, setPage] = useState(1);
 
-  // TODO: 백엔드 연동 시 setTimeout 대신 실제 기록 조회 API를 호출하고,
-  // 실패하면 setLoadError(true)로 에러 배너를 보여주세요.
-  const [isLoading, setIsLoading] = useState(true);
+  const [sessions, setSessions] = useState<SessionResponse[] | null>(null);
   const [loadError, setLoadError] = useState(false);
+  const isLoading = sessions === null && !loadError;
+
+  const loadSessions = () => {
+    queueMicrotask(() => setLoadError(false));
+    getMySessions()
+      .then(setSessions)
+      .catch(() => setLoadError(true));
+  };
 
   useEffect(() => {
-    if (!isLoading) return;
-    const timer = setTimeout(() => {
-      setLoadError(false);
-      setIsLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [isLoading]);
+    loadSessions();
+  }, []);
+
+  const completedSessions = useMemo(
+    () =>
+      (sessions ?? [])
+        .filter((s) => s.status === 'COMPLETED')
+        .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()),
+    [sessions],
+  );
 
   const filtered = useMemo(() => {
     const keyword = search.trim().toLowerCase();
-    return interviewHistory.filter((item) => {
-      const matchesMode = modeFilter === 'all' || item.mode === modeFilter;
-      const matchesKeyword =
-        !keyword ||
-        item.title.toLowerCase().includes(keyword) ||
-        item.jobRole.toLowerCase().includes(keyword);
+    return completedSessions.filter((session) => {
+      // 백엔드 InterviewMode는 아직 PRACTICE만 있어서, 실전면접(live)으로 저장되는 세션은 없다.
+      const matchesMode = modeFilter === 'all' || modeFilter === 'practice';
+      const title = session.jobRole ? JOB_ROLE_LABELS[session.jobRole] : '모의면접';
+      const matchesKeyword = !keyword || title.toLowerCase().includes(keyword);
       return matchesMode && matchesKeyword;
     });
-  }, [search, modeFilter]);
+  }, [completedSessions, search, modeFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -58,7 +73,7 @@ export default function InterviewHistoryList() {
 
   return (
     <div className="min-h-screen bg-canvas">
-      <DashboardHeader userInitial="홍" />
+      <DashboardHeader />
 
       <div className="mx-auto max-w-[920px] px-8 py-10">
         <button
@@ -110,25 +125,19 @@ export default function InterviewHistoryList() {
           </div>
         ) : loadError ? (
           <div className="mb-6">
-            <InlineError
-              message="면접 기록을 불러오지 못했어요."
-              onRetry={() => {
-                setLoadError(false);
-                setIsLoading(true);
-              }}
-            />
+            <InlineError message="면접 기록을 불러오지 못했어요." onRetry={loadSessions} />
           </div>
         ) : pageItems.length > 0 ? (
           <div className="mb-6 overflow-hidden rounded-2xl border border-stroke bg-white">
-            {pageItems.map((interview, index) => (
+            {pageItems.map((session, index) => (
               <InterviewRow
-                key={interview.id}
-                title={interview.title}
-                date={interview.date}
-                questionCount={interview.questionCount}
-                mode={interview.mode}
-                score={interview.score}
-                onReview={() => navigate(`/interview/result/${interview.id}`)}
+                key={session.sessionId}
+                title={session.jobRole ? JOB_ROLE_LABELS[session.jobRole] : '모의면접'}
+                date={formatDate(session.startedAt)}
+                questionCount={session.questionCount ?? session.questions.length}
+                mode="practice"
+                score={session.overallContentScore ?? undefined}
+                onReview={() => navigate(`/interview/result/${session.sessionId}`)}
                 isLast={index === pageItems.length - 1}
               />
             ))}

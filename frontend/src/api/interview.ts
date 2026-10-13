@@ -107,6 +107,11 @@ export async function createSession(payload: CreateSessionPayload): Promise<Sess
   return apiJson<SessionResponse>('POST', '/api/sessions', payload);
 }
 
+// 로그인한 사용자의 면접 세션 목록 (마이페이지/면접 기록 화면용)
+export async function getMySessions(): Promise<SessionResponse[]> {
+  return apiGet<SessionResponse[]>('/api/sessions');
+}
+
 export async function generateQuestion(sessionId: number): Promise<QuestionResponse> {
   return apiJson<QuestionResponse>('POST', `/api/sessions/${sessionId}/questions/generate`);
 }
