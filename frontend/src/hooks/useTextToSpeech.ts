@@ -209,6 +209,7 @@ export function useTextToSpeech() {
     try {
       localStorage.setItem(GENDER_KEY, gender);
     } catch {
+      // localStorage를 쓸 수 없는 환경이면 이번 화면에서만 선택을 유지한다.
     }
   }, []);
 
