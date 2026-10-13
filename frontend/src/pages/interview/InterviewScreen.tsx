@@ -13,7 +13,6 @@ interface QuestionItem {
   questionId: number;
   text: string;
   questionType: string | null;
-  // 백엔드는 꼬리질문(FOLLOW_UP)일 때만 직전 질문 id를 넣어준다. 새 주제 질문과 INTRO는 null.
   parentQuestionId: number | null;
 }
 
@@ -30,7 +29,7 @@ export default function InterviewScreen() {
   const navigate = useNavigate();
   const { data } = useInterviewSetup();
   const startedRef = useRef(false);
-  const { speak, stopSpeaking, isSpeaking } = useTextToSpeech();
+  const { speak, stopSpeaking, isSpeaking, voiceGender, setVoiceGender, hasServerVoice } = useTextToSpeech();
   const { startListening, stopListening, isListening, transcript, error: sttError } = useSpeechToText();
 
   const [questions, setQuestions] = useState<QuestionItem[]>([]);
@@ -40,7 +39,6 @@ export default function InterviewScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isHintOpen, setIsHintOpen] = useState(false);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
-  // 마지막 답변 저장 이후의 AI 평가 단계. 'failed'에서 다시 시도하면 답변은 다시 제출하지 않고 평가만 다시 요청한다.
   const [evaluationStatus, setEvaluationStatus] = useState<'idle' | 'evaluating' | 'failed'>('idle');
   const [evaluationError, setEvaluationError] = useState<{ message: string; code?: number } | null>(null);
   const evaluatingRef = useRef(false);
@@ -54,7 +52,6 @@ export default function InterviewScreen() {
       return;
     }
     const { questionId, questionText, questionType } = data.firstQuestion;
-    // 세션 생성 시 함께 오는 첫 질문은 자기소개(INTRO)라 부모 질문이 없다.
     queueMicrotask(() => setQuestions([{ questionId, text: questionText, questionType, parentQuestionId: null }]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -62,7 +59,6 @@ export default function InterviewScreen() {
   const currentQuestion = questions[currentIndex];
   const isIntroQuestion = currentQuestion?.questionType === 'INTRO';
   const isFollowUpQuestion = !isIntroQuestion && currentQuestion?.parentQuestionId != null;
-  // INTRO는 questionCount/진행률에 포함하지 않는다 - 프로젝트 질문만 센다.
   const projectQuestions = questions.filter((q) => q.questionType !== 'INTRO');
   const currentProjectQuestionIndex = currentQuestion
     ? projectQuestions.findIndex((q) => q.questionId === currentQuestion.questionId)
@@ -70,14 +66,12 @@ export default function InterviewScreen() {
   const isLastQuestion = !isIntroQuestion && currentProjectQuestionIndex + 1 >= data.questionCount;
   const progressPercent = isIntroQuestion ? 0 : ((currentProjectQuestionIndex + 1) / data.questionCount) * 100;
 
-  // 질문이 바뀔 때마다 자동으로 읽어주고, 화면을 벗어나면 재생을 멈춘다.
   useEffect(() => {
     if (currentQuestion) speak(currentQuestion.text);
     return () => stopSpeaking();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQuestion?.questionId]);
 
-  // 마이크로 인식된 텍스트를 답변 입력창에 실시간으로 반영한다.
   useEffect(() => {
     if (isListening) queueMicrotask(() => setAnswer(transcript));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -93,8 +87,6 @@ export default function InterviewScreen() {
     }
   };
 
-  // 마지막 질문 답변이 저장된 뒤에만 호출한다. 평가가 끝나기 전에는 결과 화면으로 이동하지 않고,
-  // 결과는 URL의 sessionId로도 다시 조회할 수 있게 /interview/result/:id로 이동한다.
   const runEvaluation = async (sessionId: number) => {
     if (evaluatingRef.current) return;
     evaluatingRef.current = true;
@@ -130,7 +122,6 @@ export default function InterviewScreen() {
       const submittedAnswer = await submitAnswer(data.sessionId, currentQuestion.questionId, { answerText: answer });
 
       if (isIntroQuestion) {
-        // 자기소개 답변 직후에는 꼬리질문 판단(/next) 없이, 바로 첫 프로젝트 질문을 생성한다.
         const firstProjectQuestion = await generateQuestion(data.sessionId);
         setQuestions((prev) => [...prev, toQuestionItem(firstProjectQuestion)]);
         setCurrentIndex((prev) => prev + 1);
@@ -140,8 +131,6 @@ export default function InterviewScreen() {
       }
 
       if (isLastQuestion) {
-        // 마지막 답변이 저장되면 백엔드가 questionCount를 확인해 세션을 자동 종료한다.
-        // 빈 /complete는 호출하지 않고, 바로 AI 평가(/evaluate)를 실행한다.
         await runEvaluation(data.sessionId);
         return;
       }
@@ -263,6 +252,26 @@ export default function InterviewScreen() {
             >
               <i className="ti ti-volume text-sm" aria-hidden="true" /> 다시 듣기
             </button>
+            {hasServerVoice && (
+              <span className="ml-auto flex items-center gap-1" role="group" aria-label="면접관 목소리 선택">
+                {(['male', 'female'] as const).map((gender) => (
+                  <button
+                    key={gender}
+                    type="button"
+                    aria-pressed={voiceGender === gender}
+                    onClick={() => {
+                      setVoiceGender(gender);
+                      speak(currentQuestion.text);
+                    }}
+                    className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${
+                      voiceGender === gender ? 'border-brand bg-card text-brand' : 'border-stroke text-muted'
+                    }`}
+                  >
+                    {gender === 'male' ? '남성' : '여성'}
+                  </button>
+                ))}
+              </span>
+            )}
           </div>
           <div className="rounded-[20px] rounded-tl-md bg-card px-5 py-4 text-[15px] leading-[1.75] text-ink">
             {currentQuestion.text}
@@ -285,7 +294,6 @@ export default function InterviewScreen() {
             <i className="ti ti-bulb text-sm" aria-hidden="true" />
             답변 힌트
           </div>
-          {/* TODO: 백엔드 연동 시 이 자리에 실제 힌트 텍스트를 받아와 표시합니다. 지금은 더미 텍스트 없이 빈 상태만 보여줘요. */}
           <p className="text-xs leading-relaxed text-muted">아직 준비된 힌트가 없어요.</p>
         </div>
       )}
