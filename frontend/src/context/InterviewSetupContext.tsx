@@ -54,6 +54,8 @@ export function InterviewSetupProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// Provider와 훅을 한 파일에 두는 Context 관례라 fast refresh 규칙만 예외로 둔다 (동작에는 영향 없음).
+// eslint-disable-next-line react-refresh/only-export-components
 export function useInterviewSetup() {
   const ctx = useContext(InterviewSetupContext);
   if (!ctx) {
