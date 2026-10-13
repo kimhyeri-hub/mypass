@@ -1,279 +1,342 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Logo from '../../components/Logo';
-import ConfirmModal from '../../components/ConfirmModal';
 import { useInterviewSetup } from '../../context/InterviewSetupContext';
-import { getDummyQuestions } from '../../utils/interviewQuestions';
+import { evaluateSession, generateNextQuestion, generateQuestion, submitAnswer } from '../../api/interview';
+import type { QuestionResponse } from '../../api/interview';
+import { ApiError } from '../../api/client';
 import { useTextToSpeech } from '../../hooks/useTextToSpeech';
 import { useSpeechToText } from '../../hooks/useSpeechToText';
+import ConfirmModal from '../../components/ConfirmModal';
+import ErrorState from '../../components/ErrorState';
 
-type Phase = 'speaking' | 'listening' | 'processing';
-
-const PROCESSING_DURATION_MS = 1100; // TODO: 실제로는 STT 결과를 서버에 제출하고 응답을 받는 시간입니다.
-
-function formatTime(totalSeconds: number) {
-  const m = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
-  const s = String(totalSeconds % 60).padStart(2, '0');
-  return `${m}:${s}`;
+interface QuestionItem {
+  questionId: number;
+  text: string;
+  questionType: string | null;
+  parentQuestionId: number | null;
 }
 
-export default function LiveInterviewScreen() {
+function toQuestionItem(question: QuestionResponse): QuestionItem {
+  return {
+    questionId: question.questionId,
+    text: question.questionText,
+    questionType: question.questionType,
+    parentQuestionId: question.parentQuestionId,
+  };
+}
+
+export default function InterviewScreen() {
   const navigate = useNavigate();
   const { data } = useInterviewSetup();
-
-  const questions = useMemo(
-    () => getDummyQuestions(data.projectName, data.questionCount),
-    [data.projectName, data.questionCount],
-  );
-
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [phase, setPhase] = useState<Phase>('speaking');
-  const [elapsed, setElapsed] = useState(0);
-  const [isExitModalOpen, setIsExitModalOpen] = useState(false);
-  // 질문별로 받은 답변(STT 결과)을 모아두는 곳. 나중에 submitAnswer API로 보낼 때 이 배열을 쓰면 돼요.
-  const [, setAnswers] = useState<string[]>([]);
-
-  // 이미 만들어져 있는 TTS/STT 훅을 그대로 가져다 써요.
-  const { speak, isSpeaking } = useTextToSpeech();
+  const startedRef = useRef(false);
+  const { speak, stopSpeaking, isSpeaking, voiceGender, setVoiceGender, hasServerVoice } = useTextToSpeech();
   const { startListening, stopListening, isListening, transcript, error: sttError } = useSpeechToText();
 
-  const currentQuestion = questions[currentIndex];
-  const isLastQuestion = currentIndex === questions.length - 1;
-
-  // 전체 면접 경과 시간
-  useEffect(() => {
-    const timer = setInterval(() => setElapsed((prev) => prev + 1), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // 내 웹캠 화면 미리보기 (실전면접처럼 내 모습이 보이도록)
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [camStatus, setCamStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [questions, setQuestions] = useState<QuestionItem[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [answer, setAnswer] = useState('');
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isHintOpen, setIsHintOpen] = useState(false);
+  const [isExitModalOpen, setIsExitModalOpen] = useState(false);
+  const [evaluationStatus, setEvaluationStatus] = useState<'idle' | 'evaluating' | 'failed'>('idle');
+  const [evaluationError, setEvaluationError] = useState<{ message: string; code?: number } | null>(null);
+  const evaluatingRef = useRef(false);
 
   useEffect(() => {
-    let stream: MediaStream | null = null;
+    if (startedRef.current) return;
+    startedRef.current = true;
 
-    if (!navigator.mediaDevices?.getUserMedia) {
-      queueMicrotask(() => setCamStatus('error'));
+    if (!data.sessionId || !data.firstQuestion) {
+      queueMicrotask(() => setError('면접 세션을 찾을 수 없어요. 면접 설정부터 다시 진행해 주세요.'));
       return;
     }
-
-    navigator.mediaDevices
-      .getUserMedia({ video: true, audio: false })
-      // TODO: 실제 음성 답변(STT)까지 이 화면에서 함께 녹음한다면 audio: true로 바꾸고,
-      // 별도의 마이크 녹음 로직과 트랙을 공유하도록 연동합니다.
-      .then((s) => {
-        stream = s;
-        if (videoRef.current) videoRef.current.srcObject = s;
-        setCamStatus('ready');
-      })
-      .catch(() => setCamStatus('error'));
-
-    return () => {
-      stream?.getTracks().forEach((track) => track.stop());
-    };
-  }, []);
-
-  // 질문이 바뀌면 AI가 음성으로 다시 읽어줘요.
-  useEffect(() => {
-    queueMicrotask(() => setPhase('speaking'));
-    speak(currentQuestion);
+    const { questionId, questionText, questionType } = data.firstQuestion;
+    queueMicrotask(() => setQuestions([{ questionId, text: questionText, questionType, parentQuestionId: null }]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex]);
+  }, []);
 
-  // isSpeaking이 true였다가 false로 바뀌는 순간 = 음성 재생이 막 끝난 순간이에요.
-  // 그 타이밍에 '답변 대기(listening)' 상태로 넘어가요.
-  const wasSpeakingRef = useRef(false);
+  const currentQuestion = questions[currentIndex];
+  const isIntroQuestion = currentQuestion?.questionType === 'INTRO';
+  const isFollowUpQuestion = !isIntroQuestion && currentQuestion?.parentQuestionId != null;
+  const projectQuestions = questions.filter((q) => q.questionType !== 'INTRO');
+  const currentProjectQuestionIndex = currentQuestion
+    ? projectQuestions.findIndex((q) => q.questionId === currentQuestion.questionId)
+    : -1;
+  const isLastQuestion = !isIntroQuestion && currentProjectQuestionIndex + 1 >= data.questionCount;
+  const progressPercent = isIntroQuestion ? 0 : ((currentProjectQuestionIndex + 1) / data.questionCount) * 100;
+
   useEffect(() => {
-    if (wasSpeakingRef.current && !isSpeaking && phase === 'speaking') {
-      setPhase('listening');
-    }
-    wasSpeakingRef.current = isSpeaking;
-  }, [isSpeaking, phase]);
+    if (currentQuestion) speak(currentQuestion.text);
+    return () => stopSpeaking();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQuestion?.questionId]);
 
-  const processingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (isListening) queueMicrotask(() => setAnswer(transcript));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transcript]);
 
-  const handleMicClick = () => {
-    if (phase !== 'listening') return;
-
-    if (!isListening) {
-      // 마이크 on: 음성 인식을 시작해요.
+  const handleToggleRecording = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      stopSpeaking();
+      if (error) setError('');
       startListening();
+    }
+  };
+
+  const runEvaluation = async (sessionId: number) => {
+    if (evaluatingRef.current) return;
+    evaluatingRef.current = true;
+    stopSpeaking();
+    setEvaluationError(null);
+    setEvaluationStatus('evaluating');
+    try {
+      const evaluated = await evaluateSession(sessionId);
+      navigate(`/interview/result/${sessionId}`, { state: { session: evaluated } });
+    } catch (err) {
+      setEvaluationError(
+        err instanceof ApiError
+          ? { message: err.message, code: err.status }
+          : { message: 'AI 평가 요청에 실패했어요.' },
+      );
+      setEvaluationStatus('failed');
+    } finally {
+      evaluatingRef.current = false;
+    }
+  };
+
+  const handleSubmitAnswer = async () => {
+    if (!answer.trim()) {
+      setError('답변을 입력하거나 음성으로 답변해 주세요.');
       return;
     }
+    if (!data.sessionId || !currentQuestion) return;
 
-    // 마이크 off: 음성 인식을 멈추고, 지금까지 인식된 텍스트(transcript)를 답변으로 저장해요.
-    stopListening();
-    setAnswers((prev) => [...prev, transcript]);
-    setPhase('processing');
-    // TODO: 여기서 submitAnswer(sessionId, questionId, { answerText: transcript })로
-    // 백엔드에 실제 답변을 제출하고, 꼬리질문 등 응답을 받아옵니다. (frontend/src/api/interview.ts 참고)
-    processingTimerRef.current = setTimeout(() => {
-      if (isLastQuestion) {
-        navigate('/interview/result');
+    if (isListening) stopListening();
+    setError('');
+    setIsSubmitting(true);
+    try {
+      const submittedAnswer = await submitAnswer(data.sessionId, currentQuestion.questionId, { answerText: answer });
+
+      if (isIntroQuestion) {
+        const firstProjectQuestion = await generateQuestion(data.sessionId);
+        setQuestions((prev) => [...prev, toQuestionItem(firstProjectQuestion)]);
+        setCurrentIndex((prev) => prev + 1);
+        setAnswer('');
+        setIsHintOpen(false);
         return;
       }
+
+      if (isLastQuestion) {
+        await runEvaluation(data.sessionId);
+        return;
+      }
+
+      const nextQuestion = await generateNextQuestion(
+        data.sessionId, currentQuestion.questionId, submittedAnswer.answerId,
+      );
+      setQuestions((prev) => [...prev, toQuestionItem(nextQuestion)]);
       setCurrentIndex((prev) => prev + 1);
-    }, PROCESSING_DURATION_MS);
+      setAnswer('');
+      setIsHintOpen(false);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '답변 제출에 실패했어요. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  useEffect(() => {
-    return () => {
-      if (processingTimerRef.current) clearTimeout(processingTimerRef.current);
-    };
-  }, []);
+  if (evaluationStatus === 'evaluating') {
+    return (
+      <div className="flex flex-col items-center px-6 py-16 text-center">
+        <div className="mb-7 h-16 w-16 animate-spin rounded-full border-[3px] border-[#E2DEF5] border-t-brand" />
+        <div className="mb-2 text-lg font-bold text-ink">면접 결과를 분석하고 있어요</div>
+        <p className="mb-8 max-w-[320px] text-sm leading-relaxed text-muted">
+          답변을 바탕으로 AI 피드백을 생성하고 있어요. 잠시만 기다려주세요.
+        </p>
 
-  const handleReplay = () => {
-    if (phase === 'processing') return;
-    setPhase('speaking');
-    speak(currentQuestion);
-  };
-
-  const stateLabel =
-    phase === 'speaking'
-      ? 'AI가 질문을 말하고 있어요'
-      : phase === 'listening'
-        ? isListening
-          ? '답변을 듣고 있어요'
-          : '준비되면 마이크를 눌러 답변해 주세요'
-        : '답변을 확인하고 있어요';
-
-  const stateSub =
-    phase === 'speaking'
-      ? '음성으로 질문을 읽어드리고 있어요'
-      : phase === 'listening'
-        ? isListening
-          ? '답변이 끝나면 마이크를 다시 눌러주세요'
-          : ''
-        : '잠시만 기다려주세요';
-
-  return (
-    <div className="min-h-screen bg-canvas">
-      <div className="flex items-center justify-between border-b border-stroke bg-white px-10 py-[22px]">
-        <Logo size="sm" to="/" />
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-muted">
-            <i className="ti ti-clock text-sm" aria-hidden="true" />
-            {formatTime(elapsed)}
+        <div className="w-[300px] text-left">
+          <div className="flex items-center gap-2.5 border-b border-dashed border-stroke py-2.5">
+            <i className="ti ti-circle-check-filled text-base text-brand" aria-hidden="true" />
+            <span className="text-[13px] text-[#3A3355]">답변 저장 완료</span>
           </div>
+          <div className="flex items-center gap-2.5 border-b border-dashed border-stroke py-2.5">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#E2DEF5] border-t-brand" />
+            <span className="text-[13px] text-[#3A3355]">역량별 점수 산출 중</span>
+          </div>
+          <div className="flex items-center gap-2.5 py-2.5">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#E2DEF5] border-t-brand" />
+            <span className="text-[13px] text-[#3A3355]">AI 총평 생성 중</span>
+          </div>
+        </div>
+
+        <div className="mt-7 text-[11.5px] text-muted">보통 10~20초 정도 걸려요. 이 화면을 닫지 말아주세요.</div>
+      </div>
+    );
+  }
+
+  if (evaluationStatus === 'failed' && data.sessionId) {
+    const sessionId = data.sessionId;
+    return (
+      <ErrorState
+        title="면접 결과를 분석하지 못했어요"
+        description={`${evaluationError?.message ?? 'AI 평가 요청에 실패했어요.'} 답변은 모두 저장되어 있어요. 다시 시도하면 평가만 다시 요청해요.`}
+        code={evaluationError?.code}
+        onRetry={() => runEvaluation(sessionId)}
+      />
+    );
+  }
+
+  if (!currentQuestion) {
+    return (
+      <div className="flex flex-col items-center py-24 text-center">
+        <p className="mb-4 max-w-[280px] text-sm text-red-500">
+          {error || '질문을 불러오는 중이에요...'}
+        </p>
+        {error && (
           <button
             type="button"
-            onClick={() => setIsExitModalOpen(true)}
-            className="rounded-lg bg-[#FDEEEF] px-3.5 py-2 text-xs font-semibold text-[#B5495A]"
+            onClick={() => navigate('/interview/setup')}
+            className="rounded-lg border border-stroke px-5 py-2.5 text-sm text-[#3A3355]"
           >
-            면접 종료
+            ← 이전으로 돌아가기
           </button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="mb-7 flex items-center gap-2.5">
+        <div className="h-[5px] flex-1 overflow-hidden rounded-full bg-card">
+          <div
+            className="h-full rounded-full bg-brand transition-all"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+        <div className="whitespace-nowrap text-xs font-semibold text-muted">
+          {isIntroQuestion ? '자기소개' : `질문 ${currentProjectQuestionIndex + 1} / ${data.questionCount}`}
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsExitModalOpen(true)}
+          className="flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#FDEEEF] px-3 py-2 text-xs font-semibold text-[#B5495A]"
+        >
+          <i className="ti ti-x text-sm" aria-hidden="true" />
+          면접 종료
+        </button>
+      </div>
+
+      <div className="mb-8 flex items-start gap-3.5">
+        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand to-[#8F6FF0] text-white">
+          <i className="ti ti-robot text-lg" aria-hidden="true" />
+        </div>
+        <div className="flex-1">
+          <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-muted">
+            AI 면접관
+            {isIntroQuestion && (
+              <span className="rounded-full bg-card px-2 py-0.5 text-[11px] font-bold text-brand">자기소개</span>
+            )}
+            {isFollowUpQuestion && (
+              <span className="rounded-full bg-card px-2 py-0.5 text-[11px] font-bold text-brand">꼬리질문</span>
+            )}
+            <button
+              type="button"
+              onClick={() => speak(currentQuestion.text)}
+              disabled={isSpeaking}
+              className="text-brand disabled:opacity-50"
+            >
+              <i className="ti ti-volume text-sm" aria-hidden="true" /> 다시 듣기
+            </button>
+            {hasServerVoice && (
+              <span className="ml-auto flex items-center gap-1" role="group" aria-label="면접관 목소리 선택">
+                {(['male', 'female'] as const).map((gender) => (
+                  <button
+                    key={gender}
+                    type="button"
+                    aria-pressed={voiceGender === gender}
+                    onClick={() => {
+                      setVoiceGender(gender);
+                      speak(currentQuestion.text);
+                    }}
+                    className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${
+                      voiceGender === gender ? 'border-brand bg-card text-brand' : 'border-stroke text-muted'
+                    }`}
+                  >
+                    {gender === 'male' ? '남성' : '여성'}
+                  </button>
+                ))}
+              </span>
+            )}
+          </div>
+          <div className="rounded-[20px] rounded-tl-md bg-card px-5 py-4 text-[15px] leading-[1.75] text-ink">
+            {currentQuestion.text}
+          </div>
         </div>
       </div>
 
-      <div className="flex min-h-[calc(100vh-73px)] flex-col items-center justify-center px-6 py-10">
-        <div className="mb-8 rounded-full bg-card px-3.5 py-1.5 text-xs font-bold text-brand">
-          질문 {currentIndex + 1} / {questions.length}
-        </div>
+      <button
+        type="button"
+        onClick={() => setIsHintOpen((prev) => !prev)}
+        className="mb-3.5 inline-flex items-center gap-1.5 rounded-[10px] border-[1.5px] border-dashed border-brand bg-white px-3.5 py-2 text-xs font-bold text-brand"
+      >
+        <i className="ti ti-bulb text-sm" aria-hidden="true" />
+        힌트 받기
+      </button>
 
-        <div className="relative mb-6 flex h-[132px] w-[132px] items-center justify-center">
-          {phase === 'speaking' && (
-            <>
-              <span className="absolute inset-0 animate-[live-ring_1.8s_ease-out_infinite] rounded-full border-2 border-brand/35" />
-              <span className="absolute inset-0 animate-[live-ring_1.8s_ease-out_infinite] rounded-full border-2 border-brand/35 [animation-delay:0.6s]" />
-              <span className="absolute inset-0 animate-[live-ring_1.8s_ease-out_infinite] rounded-full border-2 border-brand/35 [animation-delay:1.2s]" />
-            </>
-          )}
-          <div className="relative z-10 flex h-[88px] w-[88px] items-center justify-center rounded-full bg-gradient-to-br from-brand to-[#8F6FF0] text-white shadow-[0_16px_32px_-16px_rgba(108,78,224,0.55)]">
-            <i className="ti ti-robot text-4xl" aria-hidden="true" />
+      {isHintOpen && (
+        <div className="mb-4 rounded-2xl border-[1.5px] border-stroke bg-canvas px-4 py-3.5">
+          <div className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-brand">
+            <i className="ti ti-bulb text-sm" aria-hidden="true" />
+            답변 힌트
           </div>
+          <p className="text-xs leading-relaxed text-muted">아직 준비된 힌트가 없어요.</p>
         </div>
+      )}
 
-        <div className="mb-1 text-base font-bold text-ink">{stateLabel}</div>
-        <div className="mb-8 min-h-[18px] text-[13px] text-muted">{stateSub || ' '}</div>
+      <textarea
+        value={answer}
+        onChange={(e) => {
+          setAnswer(e.target.value);
+          if (error) setError('');
+        }}
+        placeholder="답변을 입력하거나 마이크 버튼을 눌러 말로 답변하세요"
+        rows={5}
+        className="mb-1 w-full resize-none rounded-2xl border-[1.5px] border-stroke px-5 py-4 text-[15px] leading-relaxed text-ink placeholder:text-[#B6AED8] focus:border-brand focus:outline-none"
+      />
+      {error && <p className="mb-2 text-xs text-red-500">{error}</p>}
+      {sttError && <p className="mb-2 text-xs text-red-500">{sttError}</p>}
 
-        <div className="mb-8 max-w-[480px] rounded-[20px] border border-stroke bg-white px-6 py-5 text-center text-[15px] leading-relaxed text-ink">
-          {currentQuestion}
-        </div>
-
-        <div className="mb-8 h-[260px] w-[420px] max-w-full overflow-hidden rounded-[24px] border border-stroke bg-ink shadow-[0_16px_32px_-16px_rgba(30,18,64,0.4)]">
-          {/* video를 항상 렌더링해야 스트림이 준비됐을 때 ref로 바로 연결할 수 있어요. */}
-          <div className="relative h-full w-full">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className={`h-full w-full object-cover [transform:scaleX(-1)] ${
-                camStatus === 'ready' ? '' : 'hidden'
-              }`}
-            />
-            {camStatus !== 'ready' && (
-              <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-white/50">
-                <i
-                  className={`ti ${camStatus === 'error' ? 'ti-camera-off' : 'ti-camera'} text-3xl`}
-                  aria-hidden="true"
-                />
-                <span className="px-3 text-center text-xs leading-snug">
-                  {camStatus === 'error'
-                    ? '카메라를 사용할 수 없어요'
-                    : '카메라를 불러오는 중이에요'}
-                </span>
-              </div>
-            )}
-            <div className="absolute bottom-3 left-3 rounded-full bg-black/40 px-2.5 py-1 text-[11px] font-medium text-white">
-              나
-            </div>
-          </div>
-        </div>
-
-        <div className="mb-9 flex h-8 items-center justify-center gap-1.5">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <span
-              key={i}
-              className={`w-1 rounded-full bg-brand transition-all ${
-                isListening ? 'h-[30px] animate-[live-bar_1s_ease-in-out_infinite]' : 'h-2 opacity-35'
-              }`}
-              style={isListening ? { animationDelay: `${i * 0.12}s` } : undefined}
-            />
-          ))}
-        </div>
-
-        <div className="relative mb-4 flex h-[76px] w-[76px] items-center justify-center">
-          {isListening && (
-            <>
-              <span className="absolute inset-0 animate-[live-ring_1.6s_ease-out_infinite] rounded-full border-2 border-brand/35" />
-              <span className="absolute inset-0 animate-[live-ring_1.6s_ease-out_infinite] rounded-full border-2 border-brand/35 [animation-delay:0.8s]" />
-            </>
-          )}
-          <button
-            type="button"
-            onClick={handleMicClick}
-            disabled={phase !== 'listening'}
-            className={`relative z-10 flex h-[76px] w-[76px] items-center justify-center rounded-full text-2xl text-white transition-colors ${
-              phase === 'listening'
-                ? 'cursor-pointer bg-gradient-to-br from-brand to-[#8F6FF0] shadow-[0_14px_28px_-12px_rgba(108,78,224,0.55)]'
-                : 'cursor-default bg-[#D9D4EC]'
-            }`}
-          >
-            <i className={`ti ${isListening ? 'ti-player-stop' : 'ti-microphone'}`} aria-hidden="true" />
-          </button>
-        </div>
-
-        {sttError && (
-          <p className="mb-4 max-w-[280px] text-center text-[11px] text-[#B5495A]">{sttError}</p>
-        )}
-
+      <div className="mb-8 mt-5 flex items-center justify-between gap-4">
         <button
           type="button"
-          onClick={handleReplay}
-          disabled={phase === 'processing'}
-          className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-muted disabled:opacity-40"
+          onClick={handleToggleRecording}
+          disabled={!!sttError}
+          className={`flex items-center gap-2 rounded-xl border-[1.5px] px-5 py-3 text-sm font-semibold transition-colors disabled:opacity-50 ${
+            isListening ? 'border-brand bg-card text-brand' : 'border-stroke text-[#3A3355]'
+          }`}
         >
-          <i className="ti ti-repeat text-sm" aria-hidden="true" />
-          질문 다시 듣기
+          <i className="ti ti-microphone text-base" aria-hidden="true" />
+          {isListening ? '녹음 중지' : '음성으로 답변'}
+        </button>
+        <button
+          type="button"
+          onClick={handleSubmitAnswer}
+          disabled={isSubmitting}
+          className="rounded-xl bg-brand px-8 py-3 text-sm font-bold text-white shadow-[0_10px_20px_-10px_rgba(108,78,224,0.6)] transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isSubmitting ? '제출 중...' : '답변 제출'}
         </button>
       </div>
 
       <ConfirmModal
         isOpen={isExitModalOpen}
-        title="면접을 종료하시겠어요?"
-        description="지금까지의 답변은 저장되지 않아요."
+        title="정말 면접을 종료하시겠어요?"
+        description="지금까지 답변한 내용은 저장되지 않고 사라져요."
         confirmLabel="종료하기"
         cancelLabel="계속하기"
         onConfirm={() => navigate('/mypage')}
