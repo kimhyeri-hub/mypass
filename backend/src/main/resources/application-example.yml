@@ -27,10 +27,13 @@ app:
     expiration-ms: 86400000
   # openai 또는 bedrock. 생략하면 openai가 기본값.
   ai:
-    provider: bedrock
+    provider: openai
+  # LiteLLM Gateway(OpenAI 호환) 연결 정보. 키/주소는 파일에 적지 않고 환경변수로만 넣는다.
+  # LLM_BASE_URL은 "/v1"까지 포함한 주소여야 한다 (예: https://<gateway-host>/v1).
   openai:
-    api-key: "여기에_본인_OpenAI_API_키"
-    model: "gpt-4o-mini"
+    base-url: ${LLM_BASE_URL}
+    api-key: ${LLM_API_KEY}
+    model: "bedrock-sonnet"
   aws:
     # provider: bedrock 일 때만 사용됨. 자격증명은 여기 넣지 않는다 -
     # AWS SDK Default Credentials Provider Chain(환경변수/~/.aws/credentials/

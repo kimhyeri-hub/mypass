@@ -155,4 +155,25 @@
         </plugins>
     </build>
 
+    <profiles>
+        <!-- 서버 배포용 jar 빌드: ./mvnw clean package -Pdeploy -DskipTests
+             로컬 개발용 설정 파일(DB 비밀번호, JWT secret 등 실제 값이 들어 있음)을 jar에 넣지 않는다.
+             서버에서는 jar 옆의 외부 application.yml과 환경변수(LLM_BASE_URL, LLM_API_KEY 등)로 설정을 주입한다.
+             clean을 빼면 이전 빌드의 target/classes에 남은 설정 파일이 그대로 들어갈 수 있으니 반드시 같이 쓴다. -->
+        <profile>
+            <id>deploy</id>
+            <build>
+                <resources>
+                    <resource>
+                        <directory>src/main/resources</directory>
+                        <excludes>
+                            <exclude>application.properties</exclude>
+                            <exclude>application.yml</exclude>
+                        </excludes>
+                    </resource>
+                </resources>
+            </build>
+        </profile>
+    </profiles>
+
 </project>
