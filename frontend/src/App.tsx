@@ -1,4 +1,4 @@
-import { Outlet, Route, Routes } from 'react-router-dom';
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -16,6 +16,7 @@ import LiveInterviewScreen from './pages/interview/LiveInterviewScreen';
 import InterviewResult from './pages/interview/InterviewResult';
 import { InterviewSetupProvider } from './context/InterviewSetupContext';
 import FlowSidebar from './components/FlowSidebar';
+import { LIVE_INTERVIEW_ENABLED } from './utils/features';
 
 // 면접 흐름(프로젝트 등록 ~ AI 면접관)에서 공통으로 쓰는 폼 데이터를
 // 하나의 Provider로 감싸서, 단계를 이동해도 값이 유지되도록 합니다.
@@ -65,8 +66,12 @@ export default function App() {
           <Route path="/interview" element={<InterviewScreen />} />
         </Route>
 
-        {/* 실전면접: AI 음성 질문 + 음성 답변. 사이드바 없이 화면 전체를 사용합니다. */}
-        <Route path="/interview/live" element={<LiveInterviewScreen />} />
+        {/* 실전면접: AI 음성 질문 + 음성 답변. 사이드바 없이 화면 전체를 사용합니다.
+            아직 '준비 중'이라 주소로 직접 들어와도 면접 설정 화면으로 돌려보냅니다. */}
+        <Route
+          path="/interview/live"
+          element={LIVE_INTERVIEW_ENABLED ? <LiveInterviewScreen /> : <Navigate to="/interview/setup" replace />}
+        />
 
         {/* 면접 결과/AI 분석 화면. 모의·실전 모두 마지막 질문 후 여기로 옵니다. */}
         <Route path="/interview/result" element={<InterviewResult />} />

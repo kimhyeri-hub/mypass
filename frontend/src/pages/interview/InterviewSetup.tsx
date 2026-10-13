@@ -1,12 +1,19 @@
 import { useNavigate } from 'react-router-dom';
 import { useInterviewSetup } from '../../context/InterviewSetupContext';
 import type { InterviewSetupData } from '../../context/InterviewSetupContext';
+import { LIVE_INTERVIEW_ENABLED } from '../../utils/features';
 
 const jobRoles = ['백엔드 개발자', '프론트엔드 개발자', '데이터 분석가'];
 const difficulties: InterviewSetupData['difficulty'][] = ['쉬움', '보통', '어려움'];
 const questionCounts = [5, 8, 10];
 
-const modes: { value: InterviewSetupData['mode']; label: string; description: string; icon: string }[] = [
+const modes: {
+  value: InterviewSetupData['mode'];
+  label: string;
+  description: string;
+  icon: string;
+  comingSoon?: boolean;
+}[] = [
   {
     value: 'practice',
     label: '모의면접',
@@ -18,6 +25,7 @@ const modes: { value: InterviewSetupData['mode']; label: string; description: st
     label: '실전면접',
     description: 'AI가 음성으로 질문하고, 음성으로 답변해요',
     icon: 'ti-microphone-2',
+    comingSoon: !LIVE_INTERVIEW_ENABLED,
   },
 ];
 
@@ -45,9 +53,15 @@ export default function InterviewSetup() {
             <button
               key={m.value}
               type="button"
+              disabled={m.comingSoon}
+              aria-disabled={m.comingSoon}
               onClick={() => updateData({ mode: m.value })}
               className={`rounded-2xl border-[1.5px] p-4 text-left transition-colors ${
-                data.mode === m.value ? 'border-brand bg-card' : 'border-stroke bg-white'
+                m.comingSoon
+                  ? 'cursor-not-allowed border-stroke bg-[#FAFAFC] opacity-60'
+                  : data.mode === m.value
+                    ? 'border-brand bg-card'
+                    : 'border-stroke bg-white'
               }`}
             >
               <div
@@ -58,11 +72,16 @@ export default function InterviewSetup() {
                 <i className={`ti ${m.icon} text-base`} aria-hidden="true" />
               </div>
               <div
-                className={`mb-1 text-sm font-bold ${
+                className={`mb-1 flex items-center gap-1.5 text-sm font-bold ${
                   data.mode === m.value ? 'text-brand' : 'text-ink'
                 }`}
               >
                 {m.label}
+                {m.comingSoon && (
+                  <span className="rounded-full bg-[#F4F2FA] px-2 py-0.5 text-[10px] font-semibold text-muted">
+                    준비 중
+                  </span>
+                )}
               </div>
               <div className="text-xs leading-relaxed text-muted">{m.description}</div>
             </button>
