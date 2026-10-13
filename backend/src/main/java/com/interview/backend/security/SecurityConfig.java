@@ -28,9 +28,6 @@ public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
     private final List<String> allowedOrigins;
 
-    // 허용할 프론트 주소는 app.cors.allowed-origins(쉼표로 구분)로 받는다.
-    // 값이 없으면 로컬 개발 서버(Vite)만 허용하고, 서버에서는 외부 application.yml에
-    // 배포 주소(예: https://<도메인>)를 넣는다 - IP/도메인이 바뀌어도 다시 빌드할 필요가 없다.
     public SecurityConfig(
             JwtAuthFilter jwtAuthFilter,
             @Value("${app.cors.allowed-origins:http://localhost:5173}") String allowedOrigins
@@ -73,7 +70,6 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // AntPathRequestMatcher를 사용하여 서블릿 경로 차원에서 완전 허용
                         .requestMatchers(
                                 new AntPathRequestMatcher("/v3/api-docs/**"),
                                 new AntPathRequestMatcher("/swagger-ui/**"),
@@ -82,6 +78,7 @@ public class SecurityConfig {
                                 new AntPathRequestMatcher("/webjars/**"),
                                 new AntPathRequestMatcher("/api/auth/**"),
                                 new AntPathRequestMatcher("/api/health"),
+                                new AntPathRequestMatcher("/api/tts"),
                                 new AntPathRequestMatcher("/error"))
                         .permitAll()
                         .anyRequest().authenticated())
