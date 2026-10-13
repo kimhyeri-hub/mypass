@@ -1,19 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-// 브라우저 내장 음성 합성(SpeechSynthesis)으로 AI 면접관의 질문을 읽어주는 훅.
-//
-// 기존 코드와 호환: speak(text) / stopSpeaking() / isSpeaking 은 그대로 쓸 수 있어요.
-// 추가된 것:
-//  - speak(text, onDone): 읽기가 "끝났을 때" 또는 "실패했을 때" onDone을 한 번 불러줘요.
-//    (실패해도 면접 흐름이 멈추지 않고 다음 단계로 넘어가게 하려는 용도)
-//  - error / isSupported: 화면에서 안내 문구를 보여줄 수 있어요.
 
-// .env 에 VITE_TTS_URL=http://localhost:8000 처럼 적으면, 이 서버(edge-tts)의 자연스러운 목소리를 써요.
-// 서버가 꺼져 있거나 실패하면 자동으로 브라우저 내장 목소리로 대신 읽어서 면접이 멈추지 않아요.
 const TTS_URL = (import.meta.env.VITE_TTS_URL as string | undefined)?.replace(/\/$/, '');
 const SERVER_TIMEOUT_MS = 8000;
 
-// 사용자가 고른 목소리(남성/여성)를 이 브라우저에 기억해둬요. (서버 음성에만 적용돼요)
 export type VoiceGender = 'male' | 'female';
 const GENDER_KEY = 'mypass_tts_gender';
 function loadGender(): VoiceGender {
@@ -26,8 +16,7 @@ function loadGender(): VoiceGender {
 
 const NOT_SUPPORTED_MESSAGE = '이 브라우저는 음성 출력(TTS)을 지원하지 않아요. Chrome 사용을 권장해요.';
 const PLAY_FAILED_MESSAGE = '질문을 음성으로 재생하지 못했어요. 질문 글을 보고 답변해 주세요.';
-// 이 시간 안에 재생이 시작되지 않으면 실패로 보고 다음 단계로 넘어갑니다.
-// (한국어 음성이 없거나 브라우저가 소리를 막은 경우, 아무 이벤트도 오지 않고 조용히 멈춰버리기 때문)
+
 const START_TIMEOUT_MS = 4000;
 
 
