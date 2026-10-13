@@ -13,10 +13,17 @@ interface QuestionItem {
   questionId: number;
   text: string;
   questionType: string | null;
+  // 백엔드는 꼬리질문(FOLLOW_UP)일 때만 직전 질문 id를 넣어준다. 새 주제 질문과 INTRO는 null.
+  parentQuestionId: number | null;
 }
 
 function toQuestionItem(question: QuestionResponse): QuestionItem {
-  return { questionId: question.questionId, text: question.questionText, questionType: question.questionType };
+  return {
+    questionId: question.questionId,
+    text: question.questionText,
+    questionType: question.questionType,
+    parentQuestionId: question.parentQuestionId,
+  };
 }
 
 export default function InterviewScreen() {
@@ -47,12 +54,14 @@ export default function InterviewScreen() {
       return;
     }
     const { questionId, questionText, questionType } = data.firstQuestion;
-    queueMicrotask(() => setQuestions([{ questionId, text: questionText, questionType }]));
+    // 세션 생성 시 함께 오는 첫 질문은 자기소개(INTRO)라 부모 질문이 없다.
+    queueMicrotask(() => setQuestions([{ questionId, text: questionText, questionType, parentQuestionId: null }]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const currentQuestion = questions[currentIndex];
   const isIntroQuestion = currentQuestion?.questionType === 'INTRO';
+  const isFollowUpQuestion = !isIntroQuestion && currentQuestion?.parentQuestionId != null;
   // INTRO는 questionCount/진행률에 포함하지 않는다 - 프로젝트 질문만 센다.
   const projectQuestions = questions.filter((q) => q.questionType !== 'INTRO');
   const currentProjectQuestionIndex = currentQuestion
@@ -240,6 +249,12 @@ export default function InterviewScreen() {
         <div className="flex-1">
           <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-muted">
             AI 면접관
+            {isIntroQuestion && (
+              <span className="rounded-full bg-card px-2 py-0.5 text-[11px] font-bold text-brand">자기소개</span>
+            )}
+            {isFollowUpQuestion && (
+              <span className="rounded-full bg-card px-2 py-0.5 text-[11px] font-bold text-brand">꼬리질문</span>
+            )}
             <button
               type="button"
               onClick={() => speak(currentQuestion.text)}
@@ -304,7 +319,7 @@ export default function InterviewScreen() {
           type="button"
           onClick={handleSubmitAnswer}
           disabled={isSubmitting}
-          className="rounded-xl bg-brand px-8 py-3 text-sm font-bold text-white shadow-[0_10px_20px_-10px_rgba(108,78,224,0.6)] transition-colors hover:bg-brand-dark disabled:opacity-60"
+          className="rounded-xl bg-brand px-8 py-3 text-sm font-bold text-white shadow-[0_10px_20px_-10px_rgba(108,78,224,0.6)] transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? '제출 중...' : '답변 제출'}
         </button>
