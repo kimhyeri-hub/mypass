@@ -36,16 +36,6 @@ export default function Home() {
 
       {/* 히어로: 왼쪽 문구 + 오른쪽 면접 진행 미리보기 */}
       <header className="relative isolate mx-auto grid max-w-[1180px] items-center gap-12 px-[6vw] pb-16 pt-14 lg:grid-cols-[1.05fr_1fr] lg:pt-20">
-        <div
-          className="pointer-events-none absolute -left-20 -top-10 -z-10 h-[380px] w-[380px] animate-float rounded-full bg-[#CFC3FA] opacity-45 blur-[70px]"
-          aria-hidden="true"
-        />
-        <div
-          className="pointer-events-none absolute -bottom-16 -right-10 -z-10 h-[320px] w-[320px] animate-float rounded-full bg-[#E4DBFF] opacity-45 blur-[70px]"
-          style={{ animationDelay: '-6s' }}
-          aria-hidden="true"
-        />
-
         <div className="text-center lg:text-left">
           <span
             className="mb-5 inline-flex animate-rise items-center gap-1.5 rounded-full bg-card px-3.5 py-[7px] text-[13px] font-bold text-brand"
@@ -54,10 +44,10 @@ export default function Home() {
             AI 모의면접
           </span>
           <h1
-            className="animate-rise font-sans text-[34px] font-extrabold leading-snug tracking-tight text-ink md:text-[44px]"
+            className="animate-rise font-sans text-[26px] font-extrabold leading-snug tracking-tight text-ink sm:text-[34px] lg:text-[40px]"
             style={{ animationDelay: '0.1s' }}
           >
-            스펙으로 준비하는 면접은
+            <span className="whitespace-nowrap">스펙으로 준비하는 면접은</span>
             <br />
             <em className="not-italic text-brand">이제 그만</em>
           </h1>
@@ -111,7 +101,7 @@ export default function Home() {
           {steps.map((step, index) => (
             <Reveal key={step.number} delay={index * 150}>
               <div className="group h-full rounded-[18px] border border-stroke bg-white p-[22px_18px] text-center transition-all duration-300 hover:-translate-y-2 hover:border-[#CFC3FA] hover:shadow-[0_24px_40px_-28px_rgba(108,78,224,0.5)]">
-                <span className="mb-2.5 block font-serif text-xs font-bold text-brand">
+                <span className="mb-2.5 block font-sans text-xs font-bold text-brand">
                   {step.number}
                 </span>
                 <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-card text-lg text-brand transition-all duration-300 group-hover:-rotate-6 group-hover:scale-105 group-hover:bg-brand group-hover:text-white">

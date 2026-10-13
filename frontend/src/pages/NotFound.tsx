@@ -10,7 +10,7 @@ export default function NotFound() {
         <Logo size="sm" to="/" />
       </div>
       <div className="flex min-h-[calc(100vh-73px)] flex-col items-center justify-center px-5 py-10 text-center">
-        <div className="mb-3.5 bg-gradient-to-br from-brand-dark to-[#8F6FF0] bg-clip-text font-serif text-[84px] font-bold leading-none tracking-tight text-transparent">
+        <div className="mb-3.5 bg-gradient-to-br from-brand-dark to-[#8F6FF0] bg-clip-text font-sans text-[84px] font-bold leading-none tracking-tight text-transparent">
           404
         </div>
         <div className="mb-2 text-[19px] font-extrabold text-ink">페이지를 찾을 수 없어요</div>

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import LogoMark from './LogoMark';
 
 interface LogoProps {
   size?: 'sm' | 'md';
@@ -10,8 +11,8 @@ export default function Logo({ size = 'md', to }: LogoProps) {
 
   const content = (
     <div className="flex items-center gap-2">
-      <span className="h-2 w-2 rounded-full bg-brand" aria-hidden="true" />
-      <span className={`font-serif ${textSize} font-bold tracking-tight text-ink`}>
+      <LogoMark className={size === 'md' ? 'h-6 w-6' : 'h-5 w-5'} />
+      <span className={`font-sans ${textSize} font-extrabold tracking-tight text-ink`}>
         MYPASS
       </span>
     </div>

@@ -196,7 +196,7 @@ export default function InterviewResult() {
             </div>
           </div>
           <div>
-            <div className="mb-2 font-serif text-[22px] font-bold">{headline(overallScore)}</div>
+            <div className="mb-2 font-sans text-[22px] font-bold">{headline(overallScore)}</div>
             <p className="m-0 max-w-[360px] whitespace-pre-line text-[13.5px] leading-relaxed text-[#4A4266]">
               {current.summaryText ?? '아직 AI 총평이 없어요.'}
             </p>
