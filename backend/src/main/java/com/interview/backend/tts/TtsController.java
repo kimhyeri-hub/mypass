@@ -1,5 +1,7 @@
 package com.interview.backend.tts;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +13,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/tts")
 public class TtsController {
+
+    private static final Logger log = LoggerFactory.getLogger(TtsController.class);
 
     private final TtsService ttsService;
 
@@ -28,6 +32,7 @@ public class TtsController {
             byte[] audio = ttsService.synthesize(text, request.voice());
             return ResponseEntity.ok().contentType(MediaType.parseMediaType("audio/mpeg")).body(audio);
         } catch (Exception e) {
+            log.error("TTS 음성 생성 실패: {}", e.toString(), e);
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
         }
     }
