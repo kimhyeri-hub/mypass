@@ -29,7 +29,7 @@ export default function InterviewScreen() {
   const navigate = useNavigate();
   const { data } = useInterviewSetup();
   const startedRef = useRef(false);
-  const { speak, stopSpeaking, isSpeaking, voiceGender, setVoiceGender, hasServerVoice } = useTextToSpeech();
+  const { speak, stopSpeaking, isSpeaking, voiceGender, setVoiceGender, voiceGenderNote } = useTextToSpeech();
   const { startListening, stopListening, isListening, transcript, error: sttError } = useSpeechToText();
 
   const [questions, setQuestions] = useState<QuestionItem[]>([]);
@@ -252,27 +252,28 @@ export default function InterviewScreen() {
             >
               <i className="ti ti-volume text-sm" aria-hidden="true" /> 다시 듣기
             </button>
-            {hasServerVoice && (
-              <span className="ml-auto flex items-center gap-1" role="group" aria-label="면접관 목소리 선택">
-                {(['male', 'female'] as const).map((gender) => (
-                  <button
-                    key={gender}
-                    type="button"
-                    aria-pressed={voiceGender === gender}
-                    onClick={() => {
-                      setVoiceGender(gender);
-                      speak(currentQuestion.text);
-                    }}
-                    className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${
-                      voiceGender === gender ? 'border-brand bg-card text-brand' : 'border-stroke text-muted'
-                    }`}
-                  >
-                    {gender === 'male' ? '남성' : '여성'}
-                  </button>
-                ))}
-              </span>
-            )}
+            <span className="ml-auto flex items-center gap-1" role="group" aria-label="면접관 목소리 선택">
+              {(['male', 'female'] as const).map((gender) => (
+                <button
+                  key={gender}
+                  type="button"
+                  aria-pressed={voiceGender === gender}
+                  onClick={() => {
+                    setVoiceGender(gender);
+                    speak(currentQuestion.text);
+                  }}
+                  className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${
+                    voiceGender === gender ? 'border-brand bg-card text-brand' : 'border-stroke text-muted'
+                  }`}
+                >
+                  {gender === 'male' ? '남성' : '여성'}
+                </button>
+              ))}
+            </span>
           </div>
+          {voiceGenderNote && (
+            <p className="mb-2 text-[11px] font-medium leading-relaxed text-muted">{voiceGenderNote}</p>
+          )}
           <div className="rounded-[20px] rounded-tl-md bg-card px-5 py-4 text-[15px] leading-[1.75] text-ink">
             {currentQuestion.text}
           </div>

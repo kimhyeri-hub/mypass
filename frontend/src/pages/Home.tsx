@@ -117,37 +117,6 @@ export default function Home() {
 
       {/* 분석 리포트 미리보기 */}
       <ReportPreviewSection />
-
-      {/* 하단 최종 CTA */}
-      <section className="mx-auto max-w-[760px] px-[6vw] pb-14 pt-0">
-        <Reveal>
-          <div
-            className="mx-auto flex max-w-[600px] items-center gap-4 rounded-[18px] border-[1.5px] border-transparent bg-white p-[12px_16px]"
-            style={{
-              backgroundImage:
-                'linear-gradient(#fff, #fff), linear-gradient(90deg, #CFC3FA, #9EE4D2)',
-              backgroundOrigin: 'border-box',
-              backgroundClip: 'padding-box, border-box',
-            }}
-          >
-            <div className="flex h-[42px] w-[62px] flex-shrink-0 items-center justify-center rounded-[9px] bg-card text-lg text-brand">
-              <i className="ti ti-sparkles" aria-hidden="true" />
-            </div>
-            <div className="flex-1 text-sm font-bold text-ink">
-              지금, 실전처럼 준비해보세요
-              <span className="mt-0.5 block text-xs font-normal text-muted">
-                이력서 한 장이면 충분해요. 가입은 1분이면 끝나요.
-              </span>
-            </div>
-            <Link
-              to="/signup"
-              className="whitespace-nowrap rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-brand-dark"
-            >
-              무료로 시작하기
-            </Link>
-          </div>
-        </Reveal>
-      </section>
     </div>
   );
 }
