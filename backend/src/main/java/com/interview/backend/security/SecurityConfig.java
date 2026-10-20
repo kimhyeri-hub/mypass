@@ -78,7 +78,6 @@ public class SecurityConfig {
                                 new AntPathRequestMatcher("/webjars/**"),
                                 new AntPathRequestMatcher("/api/auth/**"),
                                 new AntPathRequestMatcher("/api/health"),
-                                new AntPathRequestMatcher("/api/tts"),
                                 new AntPathRequestMatcher("/error"))
                         .permitAll()
                         .anyRequest().authenticated())
