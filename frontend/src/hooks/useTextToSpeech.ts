@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-const TTS_URL = (import.meta.env.VITE_TTS_URL as string | undefined)?.replace(/\/$/, '');
+const API_BASE = import.meta.env.VITE_API_BASE_URL as string | undefined;
+const TTS_URL =
+  (import.meta.env.VITE_TTS_URL as string | undefined)?.replace(/\/$/, '') ??
+  (API_BASE ? `${API_BASE.replace(/\/$/, '')}/api` : undefined);
 const SERVER_TIMEOUT_MS = 8000;
 
 export type VoiceGender = 'male' | 'female';
