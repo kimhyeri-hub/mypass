@@ -4,6 +4,7 @@ import com.interview.backend.ai.AiInterviewService;
 import com.interview.backend.ai.NextQuestionDecision;
 import com.interview.backend.ai.NextQuestionType;
 import com.interview.backend.ai.SessionEvaluation;
+import com.interview.backend.interview.dto.AnswerHintResponse;
 import com.interview.backend.interview.dto.AnswerResponse;
 import com.interview.backend.interview.dto.CompleteSessionRequest;
 import com.interview.backend.interview.dto.CreateAnswerRequest;
@@ -239,6 +240,36 @@ public class InterviewSessionService {
         questionRepository.save(nextQuestion);
 
         return QuestionResponse.from(nextQuestion, List.of());
+    }
+
+    /**
+     * 저장된 질문의 모범답안 힌트만 생성한다. 질문, 답변, 평가 결과는 바꾸지 않는다.
+     */
+    public AnswerHintResponse generateAnswerHint(String userEmail, Long sessionId, Long questionId) {
+        User user = getUser(userEmail);
+        InterviewSession session = getOwnedSession(user, sessionId);
+        requireInProgress(session);
+
+        Question question = questionRepository.findById(questionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "질문을 찾을 수 없습니다."));
+        if (!question.getSessionId().equals(session.getSessionId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "해당 세션의 질문이 아닙니다.");
+        }
+
+        String parentQuestionText = null;
+        if (question.getParentQuestionId() != null) {
+            parentQuestionText = questionRepository.findById(question.getParentQuestionId())
+                    .map(Question::getQuestionText)
+                    .orElse(null);
+        }
+
+        String hint = aiInterviewService.generateAnswerHint(
+                collectProjectContext(session.getProjectId()),
+                session.getJobRole(),
+                question.getQuestionText(),
+                isIntroQuestion(question),
+                parentQuestionText);
+        return new AnswerHintResponse(hint);
     }
 
     /**

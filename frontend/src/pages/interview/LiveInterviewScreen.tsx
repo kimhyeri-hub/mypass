@@ -4,6 +4,7 @@ import { useInterviewSetup } from '../../context/InterviewSetupContext';
 import { evaluateSession, generateNextQuestion, generateQuestion, submitAnswer } from '../../api/interview';
 import type { QuestionResponse } from '../../api/interview';
 import { ApiError } from '../../api/client';
+import { useAnswerHint } from '../../hooks/useAnswerHint';
 import { useTextToSpeech } from '../../hooks/useTextToSpeech';
 import { useSpeechToText } from '../../hooks/useSpeechToText';
 import ConfirmModal from '../../components/ConfirmModal';
@@ -37,7 +38,6 @@ export default function InterviewScreen() {
   const [answer, setAnswer] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isHintOpen, setIsHintOpen] = useState(false);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
   const [evaluationStatus, setEvaluationStatus] = useState<'idle' | 'evaluating' | 'failed'>('idle');
   const [evaluationError, setEvaluationError] = useState<{ message: string; code?: number } | null>(null);
@@ -57,6 +57,10 @@ export default function InterviewScreen() {
   }, []);
 
   const currentQuestion = questions[currentIndex];
+  const { isOpen: isHintOpen, toggle: toggleHint, hint, error: hintError, isLoading: isHintLoading } = useAnswerHint(
+    data.sessionId,
+    currentQuestion?.questionId ?? null,
+  );
   const isIntroQuestion = currentQuestion?.questionType === 'INTRO';
   const isFollowUpQuestion = !isIntroQuestion && currentQuestion?.parentQuestionId != null;
   const projectQuestions = questions.filter((q) => q.questionType !== 'INTRO');
@@ -126,7 +130,6 @@ export default function InterviewScreen() {
         setQuestions((prev) => [...prev, toQuestionItem(firstProjectQuestion)]);
         setCurrentIndex((prev) => prev + 1);
         setAnswer('');
-        setIsHintOpen(false);
         return;
       }
 
@@ -141,7 +144,6 @@ export default function InterviewScreen() {
       setQuestions((prev) => [...prev, toQuestionItem(nextQuestion)]);
       setCurrentIndex((prev) => prev + 1);
       setAnswer('');
-      setIsHintOpen(false);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '답변 제출에 실패했어요. 잠시 후 다시 시도해 주세요.');
     } finally {
@@ -282,11 +284,12 @@ export default function InterviewScreen() {
 
       <button
         type="button"
-        onClick={() => setIsHintOpen((prev) => !prev)}
+        onClick={toggleHint}
+        aria-expanded={isHintOpen}
         className="mb-3.5 inline-flex items-center gap-1.5 rounded-[10px] border-[1.5px] border-dashed border-brand bg-white px-3.5 py-2 text-xs font-bold text-brand"
       >
         <i className="ti ti-bulb text-sm" aria-hidden="true" />
-        힌트 받기
+        {isHintOpen ? '답변 힌트 숨기기' : '답변 힌트 보기'}
       </button>
 
       {isHintOpen && (
@@ -295,7 +298,9 @@ export default function InterviewScreen() {
             <i className="ti ti-bulb text-sm" aria-hidden="true" />
             답변 힌트
           </div>
-          <p className="text-xs leading-relaxed text-muted">아직 준비된 힌트가 없어요.</p>
+          {isHintLoading && <p className="text-xs leading-relaxed text-muted">모범답안을 준비하고 있어요.</p>}
+          {!isHintLoading && hintError && <p className="text-xs leading-relaxed text-red-500">{hintError}</p>}
+          {!isHintLoading && hint && <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted">{hint}</p>}
         </div>
       )}
 

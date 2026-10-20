@@ -92,6 +92,29 @@ public class AiInterviewService {
     }
 
     /**
+     * 이미 만들어진 질문의 모범답안 힌트만 생성한다.
+     * 질문 생성, 꼬리질문 판단, 평가와 분리된 호출이라 그 응답 형식은 바꾸지 않는다.
+     */
+    public String generateAnswerHint(
+            String projectContext,
+            JobRole jobRole,
+            String questionText,
+            boolean intro,
+            String parentQuestionText
+    ) {
+        if (questionText == null || questionText.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "힌트를 만들 질문이 없습니다.");
+        }
+
+        String raw = aiService.generateQuestion(
+                buildAnswerHintPrompt(projectContext, jobRole, questionText, intro, parentQuestionText));
+        if (raw == null || raw.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI가 빈 응답을 반환했습니다. 잠시 후 다시 시도해주세요.");
+        }
+        return raw.trim();
+    }
+
+    /**
      * 면접 세션에서 실제로 나온 질문과 최종 답변 전체를 근거로 AI 최종 평가를 생성한다.
      * 답변이 없는 질문도 "(답변 없음)"으로 함께 넘겨서 부족한 점으로 평가되게 한다.
      *
@@ -222,6 +245,57 @@ public class AiInterviewService {
                         buildInterviewSettingsBlock(jobRole, difficulty),
                         formatAskedQuestions(askedQuestionTexts),
                         buildSourcePriorityRules(true));
+    }
+
+    private String buildAnswerHintPrompt(
+            String projectContext,
+            JobRole jobRole,
+            String questionText,
+            boolean intro,
+            String parentQuestionText
+    ) {
+        boolean followUp = parentQuestionText != null && !parentQuestionText.isBlank();
+        String questionKind = intro ? "자기소개(INTRO)" : followUp ? "꼬리질문(FOLLOW_UP)" : "프로젝트 질문";
+        return """
+                당신은 개발자 기술면접 모범답안을 작성합니다.
+                아래 질문에 대해 지원자가 참고할 모범답안을 한국어로 작성하세요.
+
+                [프로젝트 자료]
+                %s
+
+                [면접 설정]
+                %s
+
+                [질문 유형]
+                %s
+
+                [앞선 질문]
+                %s
+
+                [현재 질문]
+                %s
+
+                근거 규칙:
+                - [프로젝트 자료]의 메타데이터와 업로드 문서에 실제로 적힌 역할, 기술, 구현, 문제 해결만 사용하세요.
+                - 자료에 없는 구현 경험, 성과, 수치, 기술, 라이브러리를 사실처럼 만들지 마세요.
+                - [프로젝트 메타데이터]와 [업로드 문서]의 내용이 충돌하면 [프로젝트 메타데이터]를 우선하세요.
+                - 다른 팀원의 담당으로 적힌 기능은 지원자가 직접 구현한 경험으로 쓰지 마세요.
+                - 지원 직무는 자료 안에서 어떤 내용을 강조할지 고르는 용도로만 쓰세요. 해당 직무 경험이 자료에 없으면 새로 만들지 마세요.
+                - 질문의 전제가 자료에서 확인되지 않으면 그 전제를 사실로 인정하지 말고, 확인되는 범위만 답한 뒤 확인되지 않은 부분은 자료에 없다고 짧게 밝히세요.
+                - 자료가 없거나 부족하면 경험과 성과를 지어내지 말고, 자료만으로는 답변을 구체화하기 어렵다고 안내하세요.
+                - 점수를 매기거나 평가 문장을 쓰지 마세요.
+
+                작성 규칙:
+                - 자기소개(INTRO)이면 자료에 있는 프로젝트, 담당 역할, 기술만으로 짧은 자기소개 예시를 작성하세요.
+                - 꼬리질문(FOLLOW_UP)이면 [현재 질문]에 답하되, 자료에 없는 세부 구현은 보충하지 마세요.
+                - 새 주제 질문을 포함한 프로젝트 질문도 같은 근거 규칙을 적용하세요.
+                - 모범답안 본문만 작성하세요. 제목, 머리말, 마크다운 코드블록은 붙이지 마세요.
+                """.formatted(
+                        contextOrPlaceholder(projectContext),
+                        buildInterviewSettingsBlock(jobRole, null),
+                        questionKind,
+                        followUp ? parentQuestionText.trim() : "(없음)",
+                        questionText.trim());
     }
 
     private String buildEvaluationPrompt(String projectContext, List<EvaluationItem> items) {

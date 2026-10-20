@@ -1,5 +1,6 @@
 package com.interview.backend.interview;
 
+import com.interview.backend.interview.dto.AnswerHintResponse;
 import com.interview.backend.interview.dto.AnswerResponse;
 import com.interview.backend.interview.dto.CompleteSessionRequest;
 import com.interview.backend.interview.dto.CreateAnswerRequest;
@@ -85,6 +86,15 @@ public class InterviewSessionController {
     ) {
         return ResponseEntity.ok(
                 sessionService.generateNextQuestion(authentication.getName(), sessionId, questionId, answerId));
+    }
+
+    @PostMapping("/{sessionId}/questions/{questionId}/hint")
+    public ResponseEntity<AnswerHintResponse> generateAnswerHint(
+            Authentication authentication,
+            @PathVariable Long sessionId,
+            @PathVariable Long questionId
+    ) {
+        return ResponseEntity.ok(sessionService.generateAnswerHint(authentication.getName(), sessionId, questionId));
     }
 
     @PostMapping("/{sessionId}/complete")
