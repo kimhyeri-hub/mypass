@@ -578,4 +578,68 @@ class AiInterviewServiceTest {
                         && prompt.contains("Backend (FastAPI)")
                         && prompt.contains("충돌하면 [프로젝트 메타데이터]를 우선하세요")));
     }
+
+    @Test
+    void answerHintUsesProjectMaterialAndDoesNotInventResults() {
+        when(aiService.generateQuestion(any())).thenReturn("  Spring Boot로 API를 구성했습니다.  ");
+
+        String hint = new AiInterviewService(aiService).generateAnswerHint(
+                "기술 스택: Spring Boot", JobRole.BACKEND, "인증은 어떻게 구현했나요?", false, null);
+
+        assertThat(hint).isEqualTo("Spring Boot로 API를 구성했습니다.");
+        verify(aiService).generateQuestion(argThat(prompt ->
+                prompt.contains("기술 스택: Spring Boot")
+                        && prompt.contains("인증은 어떻게 구현했나요?")
+                        && prompt.contains("프로젝트 질문")
+                        && prompt.contains("자료에 없는 구현 경험, 성과, 수치, 기술, 라이브러리를 사실처럼 만들지 마세요")
+                        && prompt.contains("백엔드 관련 내용을 우선적으로 질문")
+                        && prompt.contains("점수를 매기거나 평가 문장을 쓰지 마세요")));
+    }
+
+    @Test
+    void introHintStaysWithinUploadedMaterial() {
+        when(aiService.generateQuestion(any())).thenReturn("약쏘옥 백엔드를 맡았습니다.");
+
+        new AiInterviewService(aiService).generateAnswerHint(
+                "프로젝트명: 약쏘옥", null, "자기소개를 해주세요.", true, null);
+
+        verify(aiService).generateQuestion(argThat(prompt ->
+                prompt.contains("자기소개(INTRO)")
+                        && prompt.contains("짧은 자기소개 예시")
+                        && prompt.contains("경험과 성과를 지어내지 말고")));
+    }
+
+    @Test
+    void followUpHintIncludesParentQuestionWithoutFillingMissingDetails() {
+        when(aiService.generateQuestion(any())).thenReturn("자료에 있는 범위에서 답하면 됩니다.");
+
+        new AiInterviewService(aiService).generateAnswerHint(
+                "기술 스택: MariaDB", JobRole.DATA, "인덱스는 어디에 두었나요?", false, "DB는 무엇을 썼나요?");
+
+        verify(aiService).generateQuestion(argThat(prompt ->
+                prompt.contains("꼬리질문(FOLLOW_UP)")
+                        && prompt.contains("DB는 무엇을 썼나요?")
+                        && prompt.contains("인덱스는 어디에 두었나요?")
+                        && prompt.contains("자료에 없는 세부 구현은 보충하지 마세요")));
+    }
+
+    @Test
+    void answerHintRejectsBlankQuestionWithoutCallingAi() {
+        assertThatThrownBy(() -> new AiInterviewService(aiService).generateAnswerHint("자료", null, "  ", false, null))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(ex -> ((ResponseStatusException) ex).getStatusCode())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(aiService, never()).generateQuestion(any());
+    }
+
+    @Test
+    void answerHintRejectsEmptyAiResponse() {
+        when(aiService.generateQuestion(any())).thenReturn("  ");
+
+        assertThatThrownBy(() -> new AiInterviewService(aiService).generateAnswerHint(
+                "자료", null, "질문", false, null))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(ex -> ((ResponseStatusException) ex).getStatusCode())
+                .isEqualTo(HttpStatus.BAD_GATEWAY);
+    }
 }

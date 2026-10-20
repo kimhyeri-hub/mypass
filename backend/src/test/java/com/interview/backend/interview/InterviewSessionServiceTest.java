@@ -952,4 +952,84 @@ class InterviewSessionServiceTest {
                         && prompt.contains("담당 역할: 백엔드")
                         && prompt.contains("[업로드 문서 - 보조 근거]\n* Backend (FastAPI)")));
     }
+
+    @Test
+    void answerHintUsesProjectContextForIntroAndDoesNotSaveAnything() {
+        InterviewSession session = session(1L, 100L, 5L);
+        session.setJobRole(JobRole.BACKEND);
+        Question intro = introQuestion(8L, 5L);
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(questionRepository.findById(8L)).thenReturn(Optional.of(intro));
+        when(projectRepository.findById(100L)).thenReturn(Optional.of(yaksookProject("약 충돌 서비스", "react, java spring boot", "백엔드")));
+        when(projectFileRepository.findByProjectId(100L)).thenReturn(List.of(planDocument()));
+        when(aiService.generateQuestion(any())).thenReturn("약쏘옥에서 백엔드를 맡았습니다.");
+
+        var response = sessionService().generateAnswerHint("a@example.com", 5L, 8L);
+
+        assertThat(response.hint()).isEqualTo("약쏘옥에서 백엔드를 맡았습니다.");
+        verify(aiService).generateQuestion(argThat(prompt ->
+                prompt.contains("자기소개(INTRO)")
+                        && prompt.contains("[프로젝트 메타데이터 - 우선 근거]")
+                        && prompt.contains("[업로드 문서 - 보조 근거]")
+                        && prompt.contains("사실처럼 만들지 마세요")));
+        verify(questionRepository, never()).save(any());
+        verify(answerRepository, never()).save(any());
+        verify(sessionRepository, never()).save(any());
+    }
+
+    @Test
+    void answerHintPassesParentQuestionForFollowUp() {
+        InterviewSession session = session(1L, 100L, 5L);
+        Question parent = question(10L, 5L, "DB는 무엇을 썼나요?");
+        Question followUp = new Question(5L, 10L, 2, "인덱스는 어디에 두었나요?", "AI", null);
+        followUp.setQuestionId(11L);
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(questionRepository.findById(11L)).thenReturn(Optional.of(followUp));
+        when(questionRepository.findById(10L)).thenReturn(Optional.of(parent));
+        when(projectRepository.findById(100L)).thenReturn(Optional.of(yaksookProject("설명", "MariaDB", "백엔드")));
+        when(projectFileRepository.findByProjectId(100L)).thenReturn(List.of());
+        when(aiService.generateQuestion(any())).thenReturn("자료에 인덱스 언급이 없습니다.");
+
+        sessionService().generateAnswerHint("a@example.com", 5L, 11L);
+
+        verify(aiService).generateQuestion(argThat(prompt ->
+                prompt.contains("꼬리질문(FOLLOW_UP)")
+                        && prompt.contains("DB는 무엇을 썼나요?")
+                        && prompt.contains("인덱스는 어디에 두었나요?")));
+    }
+
+    @Test
+    void answerHintRejectsAnotherUsersSession() {
+        InterviewSession othersSession = new InterviewSession(2L, 100L);
+        othersSession.setSessionId(5L);
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(othersSession));
+
+        assertThatThrownBy(() -> sessionService().generateAnswerHint("a@example.com", 5L, 8L))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(ex -> ((ResponseStatusException) ex).getStatusCode())
+                .isEqualTo(org.springframework.http.HttpStatus.FORBIDDEN);
+        verify(aiService, never()).generateQuestion(any());
+    }
+
+    @Test
+    void answerHintRejectsQuestionFromAnotherSession() {
+        InterviewSession session = session(1L, 100L, 5L);
+        Question otherQuestion = question(8L, 9L, "다른 세션 질문");
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(questionRepository.findById(8L)).thenReturn(Optional.of(otherQuestion));
+
+        assertThatThrownBy(() -> sessionService().generateAnswerHint("a@example.com", 5L, 8L))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(ex -> ((ResponseStatusException) ex).getStatusCode())
+                .isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
+        verify(aiService, never()).generateQuestion(any());
+    }
 }

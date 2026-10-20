@@ -112,6 +112,14 @@ export async function getMySessions(): Promise<SessionResponse[]> {
   return apiGet<SessionResponse[]>('/api/sessions');
 }
 
+export interface AnswerHintResponse {
+  hint: string;
+}
+
+export async function fetchAnswerHint(sessionId: number, questionId: number): Promise<AnswerHintResponse> {
+  return apiJson<AnswerHintResponse>('POST', `/api/sessions/${sessionId}/questions/${questionId}/hint`);
+}
+
 export async function generateQuestion(sessionId: number): Promise<QuestionResponse> {
   return apiJson<QuestionResponse>('POST', `/api/sessions/${sessionId}/questions/generate`);
 }
