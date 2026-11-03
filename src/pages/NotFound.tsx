@@ -10,7 +10,7 @@ export default function NotFound() {
         <Logo size="sm" to="/" />
       </div>
       <div className="flex min-h-[calc(100vh-73px)] flex-col items-center justify-center px-5 py-10 text-center">
-        <div className="mb-3.5 bg-gradient-to-br from-brand-dark to-[#8F6FF0] bg-clip-text font-serif text-[84px] font-bold leading-none tracking-tight text-transparent">
+        <div className="mb-3.5 bg-gradient-to-br from-brand-dark to-[#8F6FF0] bg-clip-text font-sans text-[84px] font-bold leading-none tracking-tight text-transparent">
           404
         </div>
         <div className="mb-2 text-[19px] font-extrabold text-ink">페이지를 찾을 수 없어요</div>
@@ -25,7 +25,6 @@ export default function NotFound() {
             onClick={() => navigate(-1)}
             className="flex items-center gap-1.5 rounded-xl border-[1.5px] border-stroke bg-white px-[22px] py-3 text-[13.5px] font-bold text-[#3A3355]"
           >
-            <i className="ti ti-arrow-left text-base" aria-hidden="true" />
             이전 페이지
           </button>
           <button
@@ -33,7 +32,6 @@ export default function NotFound() {
             onClick={() => navigate('/')}
             className="flex items-center gap-1.5 rounded-xl bg-brand px-[22px] py-3 text-[13.5px] font-bold text-white shadow-[0_10px_20px_-10px_rgba(108,78,224,0.6)] hover:bg-brand-dark"
           >
-            <i className="ti ti-home text-base" aria-hidden="true" />
             홈으로
           </button>
         </div>

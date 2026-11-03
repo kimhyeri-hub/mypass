@@ -51,13 +51,6 @@ export default function InterviewSetup() {
               }`}
             >
               <div
-                className={`mb-3 flex h-9 w-9 items-center justify-center rounded-[11px] ${
-                  data.mode === m.value ? 'bg-brand text-white' : 'bg-[#F4F2FA] text-muted'
-                }`}
-              >
-                <i className={`ti ${m.icon} text-base`} aria-hidden="true" />
-              </div>
-              <div
                 className={`mb-1 text-sm font-bold ${
                   data.mode === m.value ? 'text-brand' : 'text-ink'
                 }`}

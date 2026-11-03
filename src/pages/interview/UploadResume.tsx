@@ -74,7 +74,6 @@ export default function UploadResume() {
             isDragOver ? 'border-brand bg-card' : 'border-stroke bg-[#FAF9FF]'
           }`}
         >
-          <i className="ti ti-file-upload text-2xl text-brand" aria-hidden="true" />
           <div className="mt-3 text-sm text-[#3A3355]">
             PDF 파일을 드래그하거나 클릭해서 업로드
           </div>
@@ -91,7 +90,6 @@ export default function UploadResume() {
         {fileName && (
           <div className="mt-4 flex items-center justify-between rounded-lg border border-[#E2DEF5] px-3.5 py-3">
             <div className="flex items-center gap-2">
-              <i className="ti ti-file-text text-base text-brand" aria-hidden="true" />
               <span className="text-sm text-ink">{fileName}</span>
             </div>
             {fileSize && <span className="text-xs text-[#98A2B3]">{fileSize}</span>}

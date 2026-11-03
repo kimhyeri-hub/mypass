@@ -109,7 +109,7 @@ export default function InterviewResult({ sample = false }: InterviewResultProps
 
           <div className="w-[300px] text-left">
             <div className="flex items-center gap-2.5 border-b border-dashed border-stroke py-2.5">
-              <i className="ti ti-circle-check-filled text-base text-brand" aria-hidden="true" />
+              <span className="text-base font-bold leading-none text-brand" aria-hidden="true">✓</span>
               <span className="text-[13px] text-[#3A3355]">답변 전사(STT) 완료</span>
             </div>
             <div className="flex items-center gap-2.5 border-b border-dashed border-stroke py-2.5">
@@ -189,7 +189,7 @@ export default function InterviewResult({ sample = false }: InterviewResultProps
             </div>
           </div>
           <div>
-            <div className="mb-2 font-serif text-[22px] font-bold">전반적으로 좋은 답변이었어요</div>
+            <div className="mb-2 font-sans text-[22px] font-bold">전반적으로 좋은 답변이었어요</div>
             <p className="m-0 max-w-[360px] text-[13.5px] leading-relaxed text-[#4A4266]">
               경험을 구체적인 사례로 풀어내는 능력이 돋보였어요. 다만 일부 답변에서 결론을 먼저
               말하는 구조를 연습하면 더 좋아질 것 같아요.
@@ -233,7 +233,7 @@ export default function InterviewResult({ sample = false }: InterviewResultProps
         <div className="mb-8 rounded-2xl border border-stroke bg-white p-6">
           <div className="mb-3.5 flex gap-3">
             <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[9px] bg-[#EAF7F0] text-[#2FA36B]">
-              <i className="ti ti-thumb-up text-sm" aria-hidden="true" />
+              ✓
             </div>
             <p className="m-0 pt-0.5 text-[13.5px] leading-relaxed text-[#3A3355]">
               프로젝트 경험을 설명할 때 문제 상황 → 시도한 방법 → 결과 순서로 구조화해서 이야기해
@@ -242,7 +242,7 @@ export default function InterviewResult({ sample = false }: InterviewResultProps
           </div>
           <div className="flex gap-3">
             <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[9px] bg-[#FBF1E3] text-[#D98A2B]">
-              <i className="ti ti-alert-triangle text-sm" aria-hidden="true" />
+              !
             </div>
             <p className="m-0 pt-0.5 text-[13.5px] leading-relaxed text-[#3A3355]">
               일부 답변이 다소 길어지는 경향이 있었어요. 핵심 결론을 먼저 말하고 세부 설명을
@@ -268,7 +268,6 @@ export default function InterviewResult({ sample = false }: InterviewResultProps
                 "{DUMMY_ANSWERS[index] ?? DUMMY_ANSWERS[0]}"
               </div>
               <div className="flex gap-2">
-                <i className="ti ti-sparkles mt-0.5 text-sm text-brand" aria-hidden="true" />
                 <p className="m-0 text-[13px] leading-relaxed text-[#3A3355]">
                   {DUMMY_FEEDBACKS[index] ?? DUMMY_FEEDBACKS[0]}
                 </p>

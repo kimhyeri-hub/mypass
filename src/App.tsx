@@ -43,6 +43,18 @@ function InterviewFlowLayout() {
   );
 }
 
+// 실전면접용: 같은 사이드바를 두되, 카메라·대화 화면이 넓게 쓰이도록 흰 카드 없이 가득 채웁니다.
+function InterviewWideLayout() {
+  return (
+    <div className="flex min-h-screen bg-canvas">
+      <FlowSidebar />
+      <main className="min-w-0 flex-1">
+        <Outlet />
+      </main>
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <Routes>
@@ -65,8 +77,10 @@ export default function App() {
           <Route path="/interview" element={<InterviewScreen />} />
         </Route>
 
-        {/* 실전면접: AI 음성 질문 + 음성 답변. 사이드바 없이 화면 전체를 사용합니다. */}
-        <Route path="/interview/live" element={<LiveInterviewScreen />} />
+        {/* 실전면접: AI 음성 질문 + 음성 답변. 사이드바는 두고 오른쪽 영역을 넓게 씁니다. */}
+        <Route element={<InterviewWideLayout />}>
+          <Route path="/interview/live" element={<LiveInterviewScreen />} />
+        </Route>
 
         {/* 면접 결과/AI 분석 화면. 모의·실전 모두 마지막 질문 후 여기로 옵니다. */}
         <Route path="/interview/result" element={<InterviewResult />} />

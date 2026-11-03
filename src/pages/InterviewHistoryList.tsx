@@ -66,7 +66,6 @@ export default function InterviewHistoryList() {
           onClick={() => navigate('/mypage')}
           className="mb-4 flex items-center gap-1.5 text-sm text-muted hover:text-ink"
         >
-          <i className="ti ti-arrow-left text-base" aria-hidden="true" />
           마이페이지로
         </button>
 
@@ -74,7 +73,6 @@ export default function InterviewHistoryList() {
 
         <div className="mb-4 flex flex-wrap gap-2.5">
           <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-xl border-[1.5px] border-stroke bg-white px-3.5 py-2.5">
-            <i className="ti ti-search text-base text-muted" aria-hidden="true" />
             <input
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
@@ -147,7 +145,7 @@ export default function InterviewHistoryList() {
               disabled={currentPage === 1}
               className="flex h-9 w-9 items-center justify-center rounded-lg border border-stroke bg-white text-sm text-ink disabled:opacity-40"
             >
-              <i className="ti ti-chevron-left" aria-hidden="true" />
+              ‹
             </button>
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((num) => (
               <button
@@ -169,7 +167,7 @@ export default function InterviewHistoryList() {
               disabled={currentPage === totalPages}
               className="flex h-9 w-9 items-center justify-center rounded-lg border border-stroke bg-white text-sm text-ink disabled:opacity-40"
             >
-              <i className="ti ti-chevron-right" aria-hidden="true" />
+              ›
             </button>
           </div>
         )}

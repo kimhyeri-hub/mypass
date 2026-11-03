@@ -99,7 +99,6 @@ export default function ResumeManage() {
           onClick={() => navigate('/mypage')}
           className="mb-4 flex items-center gap-1.5 text-sm text-muted hover:text-ink"
         >
-          <i className="ti ti-arrow-left text-base" aria-hidden="true" />
           마이페이지로
         </button>
 
@@ -110,7 +109,6 @@ export default function ResumeManage() {
             onClick={handleAddClick}
             className="flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-dark"
           >
-            <i className="ti ti-plus text-base" aria-hidden="true" />
             이력서 추가
           </button>
         </div>
@@ -136,9 +134,6 @@ export default function ResumeManage() {
                 key={resume.id}
                 className="flex items-center gap-4 rounded-2xl border border-stroke bg-white p-5"
               >
-                <div className="flex h-[46px] w-[46px] flex-shrink-0 items-center justify-center rounded-[13px] bg-card text-xl text-brand">
-                  <i className="ti ti-file-text" aria-hidden="true" />
-                </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <div className="truncate text-sm font-bold text-ink">{resume.title}</div>
@@ -156,18 +151,18 @@ export default function ResumeManage() {
                   <button
                     type="button"
                     onClick={() => handleReplaceClick(resume.id)}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-stroke text-muted hover:text-ink"
+                    className="flex h-9 items-center justify-center rounded-lg border border-stroke px-3 text-xs font-semibold text-muted hover:text-ink"
                     title="교체하기"
                   >
-                    <i className="ti ti-replace text-base" aria-hidden="true" />
+                    교체
                   </button>
                   <button
                     type="button"
                     onClick={() => handleDelete(resume.id)}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-stroke text-muted hover:border-[#F3D7DC] hover:text-[#C0455A]"
+                    className="flex h-9 items-center justify-center rounded-lg border border-stroke px-3 text-xs font-semibold text-muted hover:border-[#F3D7DC] hover:text-[#C0455A]"
                     title="삭제하기"
                   >
-                    <i className="ti ti-trash text-base" aria-hidden="true" />
+                    삭제
                   </button>
                 </div>
               </div>
@@ -175,7 +170,6 @@ export default function ResumeManage() {
           </div>
         ) : (
           <div className="mb-4 rounded-2xl border-[1.5px] border-dashed border-stroke py-14 text-center">
-            <i className="ti ti-file-off mb-3 block text-[28px] text-[#C9C1E8]" aria-hidden="true" />
             <p className="text-sm text-muted">아직 등록된 이력서가 없어요.</p>
           </div>
         )}
@@ -185,7 +179,6 @@ export default function ResumeManage() {
           onClick={handleAddClick}
           className="w-full rounded-2xl border-[1.5px] border-dashed border-stroke bg-white py-9 text-center text-muted hover:border-brand hover:text-brand"
         >
-          <i className="ti ti-cloud-upload mb-2.5 block text-2xl" aria-hidden="true" />
           <div className="mb-1 text-sm font-bold text-ink">이력서를 클릭해서 업로드하세요</div>
           <div className="text-xs">PDF, DOCX 파일 지원 (최대 10MB)</div>
         </button>

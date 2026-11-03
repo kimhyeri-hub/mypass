@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import { Link } from 'react-router-dom';
+import LogoMark from './LogoMark';
 import Reveal from './Reveal';
 import { useVisibleLoop } from '../hooks/useVisibleLoop';
 import { sleep, tween, typeText } from '../utils/motion';
@@ -210,8 +211,8 @@ function SummaryCard() {
   });
 
   const rows = [
-    { icon: 'ti-thumb-up', tone: 'bg-[#EAF7F0] text-[#2FA36B]', text: good, full: GOOD_TEXT },
-    { icon: 'ti-alert-triangle', tone: 'bg-[#FBF1E3] text-[#D98A2B]', text: warn, full: WARN_TEXT },
+    { mark: '✓', tone: 'bg-[#EAF7F0] text-[#2FA36B]', text: good, full: GOOD_TEXT },
+    { mark: '!', tone: 'bg-[#FBF1E3] text-[#D98A2B]', text: warn, full: WARN_TEXT },
   ];
 
   return (
@@ -223,7 +224,7 @@ function SummaryCard() {
       <div className="flex w-[310px] flex-col gap-2.5">
         {rows.map((row) => (
           <div
-            key={row.icon}
+            key={row.mark}
             className={`flex min-h-[62px] items-start gap-2.5 rounded-[13px] border border-stroke bg-white px-3 py-[11px] text-xs leading-relaxed shadow-[0_8px_18px_-14px_rgba(30,18,64,0.4)] transition-all duration-500 ${
               row.text !== null ? 'translate-x-0 opacity-100' : '-translate-x-4 opacity-0'
             }`}
@@ -231,7 +232,7 @@ function SummaryCard() {
             <div
               className={`flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-lg text-sm ${row.tone}`}
             >
-              <i className={`ti ${row.icon}`} aria-hidden="true" />
+              {row.mark}
             </div>
             <div className="text-ink">
               {row.text}
@@ -330,7 +331,6 @@ function QuestionCard() {
               feedbackOn ? 'opacity-100' : 'opacity-0'
             }`}
           >
-            <i className="ti ti-sparkles flex-shrink-0 text-brand" aria-hidden="true" />
             <span>{current.f}</span>
           </div>
         </div>
@@ -341,7 +341,7 @@ function QuestionCard() {
 
 export default function ReportPreviewSection() {
   return (
-    <section className="relative mx-auto max-w-[960px] px-[6vw] pb-14 pt-10">
+    <section className="relative mx-auto max-w-[960px] px-[6vw] pb-20 pt-10">
       <div
         className="pointer-events-none absolute inset-x-0 -top-10 bottom-0 -z-10"
         style={{
@@ -381,7 +381,7 @@ export default function ReportPreviewSection() {
 
       <Reveal>
         <div
-          className="mx-auto mt-7 flex max-w-[520px] items-center gap-4 rounded-[18px] border-[1.5px] border-transparent bg-white p-[12px_16px]"
+          className="mt-7 flex w-full items-center gap-4 rounded-[18px] border-[1.5px] border-transparent bg-white p-[12px_16px]"
           style={{
             backgroundImage:
               'linear-gradient(#fff, #fff), linear-gradient(90deg, #CFC3FA, #9EE4D2)',
@@ -389,8 +389,8 @@ export default function ReportPreviewSection() {
             backgroundClip: 'padding-box, border-box',
           }}
         >
-          <div className="flex h-[42px] w-[62px] items-center justify-center rounded-[9px] bg-card text-lg text-[#B6AED8]">
-            <i className="ti ti-lock" aria-hidden="true" />
+          <div className="flex h-[42px] w-[62px] items-center justify-center rounded-[9px] bg-card">
+            <LogoMark className="h-[32px] w-[32px]" />
           </div>
           <div className="flex-1 text-sm font-bold text-ink">
             전체 리포트가 궁금하다면?

@@ -12,7 +12,9 @@ const steps = [
 
 export default function FlowSidebar() {
   const location = useLocation();
-  const currentIndex = steps.findIndex((step) => step.path === location.pathname);
+  // 실전면접(/interview/live)도 모의면접과 같은 "AI 면접" 단계로 표시합니다.
+  const currentPath = location.pathname === '/interview/live' ? '/interview' : location.pathname;
+  const currentIndex = steps.findIndex((step) => step.path === currentPath);
 
   return (
     <aside className="sticky top-0 h-screen w-64 shrink-0 border-r border-stroke bg-white px-7 py-9">

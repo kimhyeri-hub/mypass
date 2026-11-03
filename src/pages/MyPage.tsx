@@ -36,7 +36,7 @@ export default function MyPage() {
       <div className="mx-auto max-w-[1040px] px-8 py-10">
         <div className="mb-8 flex items-center justify-between gap-6 rounded-3xl bg-gradient-to-r from-brand-dark via-brand to-[#8A6BF2] px-10 py-9 text-white shadow-[0_20px_40px_-20px_rgba(108,78,224,0.55)]">
           <div>
-            <div className="font-serif text-2xl font-bold tracking-tight">
+            <div className="font-sans text-2xl font-bold tracking-tight">
               안녕하세요, 홍길동님
             </div>
             <p className="mt-1.5 text-sm text-[#DCD3FA]">오늘도 실전처럼 연습해볼까요</p>
@@ -45,7 +45,6 @@ export default function MyPage() {
             onClick={handleStartInterview}
             className="flex flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-white px-6 py-3.5 text-sm font-bold text-brand-dark shadow-[0_10px_20px_-8px_rgba(0,0,0,0.25)] hover:bg-[#F6F3FE]"
           >
-            <i className="ti ti-microphone-2 text-base" aria-hidden="true" />
             새 모의면접 시작하기
           </button>
         </div>
@@ -79,7 +78,6 @@ export default function MyPage() {
           </div>
         ) : (
           <div className="mb-10 rounded-2xl border-[1.5px] border-dashed border-stroke py-12 text-center">
-            <i className="ti ti-message-2 mb-2.5 block text-2xl text-[#C9C1E8]" aria-hidden="true" />
             <p className="mb-3 text-sm text-muted">아직 진행한 면접이 없어요.</p>
             <button
               onClick={handleStartInterview}

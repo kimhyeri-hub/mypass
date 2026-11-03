@@ -138,14 +138,13 @@ export default function InterviewScreen() {
           onClick={() => setIsExitModalOpen(true)}
           className="flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#FDEEEF] px-3 py-2 text-xs font-semibold text-[#B5495A]"
         >
-          <i className="ti ti-x text-sm" aria-hidden="true" />
           면접 종료
         </button>
       </div>
 
       <div className="mb-8 flex items-start gap-3.5">
-        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand to-[#8F6FF0] text-white">
-          <i className="ti ti-robot text-lg" aria-hidden="true" />
+        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand to-[#8F6FF0] text-sm font-extrabold text-white">
+          AI
         </div>
         <div className="flex-1">
           <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted">
@@ -172,14 +171,12 @@ export default function InterviewScreen() {
         onClick={() => setIsHintOpen((prev) => !prev)}
         className="mb-3.5 inline-flex items-center gap-1.5 rounded-[10px] border-[1.5px] border-dashed border-brand bg-white px-3.5 py-2 text-xs font-bold text-brand"
       >
-        <i className="ti ti-bulb text-sm" aria-hidden="true" />
         힌트 받기
       </button>
 
       {isHintOpen && (
         <div className="mb-4 rounded-2xl border-[1.5px] border-stroke bg-canvas px-4 py-3.5">
           <div className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-brand">
-            <i className="ti ti-bulb text-sm" aria-hidden="true" />
             답변 힌트
           </div>
           {/* TODO: 백엔드 연동 시 이 자리에 실제 힌트 텍스트를 받아와 표시합니다. 지금은 더미 텍스트 없이 빈 상태만 보여줘요. */}
@@ -209,7 +206,6 @@ export default function InterviewScreen() {
             isRecording ? 'border-brand bg-card text-brand' : 'border-stroke text-[#3A3355]'
           }`}
         >
-          <i className="ti ti-microphone text-base" aria-hidden="true" />
           {isRecording ? '녹음 중지' : '음성으로 답변'}
         </button>
         <button

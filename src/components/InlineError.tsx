@@ -7,7 +7,6 @@ interface InlineErrorProps {
 export default function InlineError({ message, onRetry }: InlineErrorProps) {
   return (
     <div className="flex items-center gap-3 rounded-[14px] border border-[#F3D7DC] bg-[#FDEEEF] px-4 py-3.5">
-      <i className="ti ti-wifi-off text-xl text-[#B5495A]" aria-hidden="true" />
       <div className="flex-1 text-[13px] font-semibold text-[#8A3447]">{message}</div>
       {onRetry && (
         <button

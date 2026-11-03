@@ -25,12 +25,12 @@ export default function Analyzing() {
 
       <div className="mt-7 w-[280px] text-left">
         <div className="mb-2.5 flex items-center gap-2">
-          <i className="ti ti-circle-check-filled text-base text-brand" aria-hidden="true" />
+          <span className="text-base font-bold leading-none text-brand" aria-hidden="true">✓</span>
           <span className="text-xs text-[#3A3355]">텍스트 추출 완료</span>
         </div>
         <div className="flex items-center gap-2">
           {step === 1 ? (
-            <i className="ti ti-circle-check-filled text-base text-brand" aria-hidden="true" />
+            <span className="text-base font-bold leading-none text-brand" aria-hidden="true">✓</span>
           ) : (
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#E2DEF5] border-t-brand" />
           )}

@@ -21,9 +21,6 @@ export default function ErrorState({
 
   return (
     <div className="flex flex-col items-center px-6 py-14 text-center">
-      <div className="mb-[18px] flex h-[60px] w-[60px] items-center justify-center rounded-full bg-[#FDEEEF] text-[26px] text-[#B5495A]">
-        <i className="ti ti-alert-triangle" aria-hidden="true" />
-      </div>
       <div className="mb-2 text-[17px] font-extrabold text-ink">{title}</div>
       <p className="mb-6 max-w-[340px] text-[13.5px] leading-relaxed text-muted">{description}</p>
       <div className="flex gap-2.5">
@@ -33,7 +30,6 @@ export default function ErrorState({
             onClick={() => navigate('/mypage')}
             className="flex items-center gap-1.5 rounded-xl border-[1.5px] border-stroke bg-white px-[22px] py-3 text-[13.5px] font-bold text-[#3A3355]"
           >
-            <i className="ti ti-home text-base" aria-hidden="true" />
             마이페이지로
           </button>
         )}
@@ -43,7 +39,6 @@ export default function ErrorState({
             onClick={onRetry}
             className="flex items-center gap-1.5 rounded-xl bg-brand px-[22px] py-3 text-[13.5px] font-bold text-white shadow-[0_10px_20px_-10px_rgba(108,78,224,0.6)] hover:bg-brand-dark"
           >
-            <i className="ti ti-refresh text-base" aria-hidden="true" />
             다시 시도하기
           </button>
         )}
