@@ -7,6 +7,7 @@ export function useSpeechToText() {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [isSupported, setIsSupported] = useState(true);
   const recognitionRef = useRef<SpeechRecognitionType>(null);
 
   useEffect(() => {
@@ -14,9 +15,10 @@ export function useSpeechToText() {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      queueMicrotask(() =>
-        setError("이 브라우저는 음성 인식(STT)을 지원하지 않습니다. Chrome 사용을 권장합니다."),
-      );
+      queueMicrotask(() => {
+        setIsSupported(false);
+        setError("이 브라우저는 음성 인식(STT)을 지원하지 않습니다. Chrome 사용을 권장합니다. 글로 답변할 수 있어요.");
+      });
       return;
     }
 
@@ -36,7 +38,13 @@ export function useSpeechToText() {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onerror = (event: any) => {
-      setError(`음성 인식 오류: ${event.error}`);
+      if (event.error === "aborted") return;
+      const retryable = event.error === "no-speech" || event.error === "network" || event.error === "audio-capture";
+      setError(
+        retryable
+          ? "음성을 인식하지 못했어요. 다시 말하거나 글로 입력해 주세요."
+          : `음성 인식 오류: ${event.error}. 다시 말하거나 글로 입력해 주세요.`,
+      );
       setIsListening(false);
     };
 
@@ -55,8 +63,13 @@ export function useSpeechToText() {
     if (!recognitionRef.current) return;
     setTranscript("");
     setError(null);
-    recognitionRef.current.start();
-    setIsListening(true);
+    try {
+      recognitionRef.current.start();
+      setIsListening(true);
+    } catch {
+      setIsListening(false);
+      setError("음성 인식을 다시 시작하지 못했어요. 잠시 후 다시 말하거나 글로 입력해 주세요.");
+    }
   }, []);
 
   const stopListening = useCallback(() => {
@@ -65,5 +78,5 @@ export function useSpeechToText() {
     setIsListening(false);
   }, []);
 
-  return { startListening, stopListening, isListening, transcript, error };
+  return { startListening, stopListening, isListening, transcript, error, isSupported };
 }

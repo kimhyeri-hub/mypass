@@ -13,6 +13,7 @@ import com.interview.backend.user.User;
 import com.interview.backend.user.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.server.ResponseStatusException;
@@ -448,7 +449,7 @@ class InterviewSessionServiceTest {
 
         assertThatThrownBy(() -> sessionService().addAnswer(
                 "a@example.com", 5L, 10L,
-                new com.interview.backend.interview.dto.CreateAnswerRequest("답변", null, null, null)))
+                new com.interview.backend.interview.dto.CreateAnswerRequest("답변", null, null, null, null, null, null)))
                 .isInstanceOf(ResponseStatusException.class)
                 .extracting(e -> ((ResponseStatusException) e).getStatusCode())
                 .isEqualTo(org.springframework.http.HttpStatus.CONFLICT);
@@ -613,7 +614,7 @@ class InterviewSessionServiceTest {
 
         sessionService().addAnswer(
                 "a@example.com", 5L, 10L,
-                new com.interview.backend.interview.dto.CreateAnswerRequest("답변", null, null, null));
+                new com.interview.backend.interview.dto.CreateAnswerRequest("답변", null, null, null, null, null, null));
 
         assertThat(session.getStatus()).isEqualTo(SessionStatus.COMPLETED);
         assertThat(session.getEndedAt()).isNotNull();
@@ -634,10 +635,31 @@ class InterviewSessionServiceTest {
 
         sessionService().addAnswer(
                 "a@example.com", 5L, 10L,
-                new com.interview.backend.interview.dto.CreateAnswerRequest("답변", null, null, null));
+                new com.interview.backend.interview.dto.CreateAnswerRequest("답변", null, null, null, null, null, null));
 
         assertThat(session.getStatus()).isEqualTo(SessionStatus.IN_PROGRESS);
         assertThat(session.getEndedAt()).isNull();
+    }
+
+    @Test
+    void addAnswerStoresDeliveryScoresAndClampsThem() {
+        InterviewSession session = session(1L, 100L, 5L);
+        Question question = introQuestion(10L, 5L);
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(questionRepository.findById(10L)).thenReturn(Optional.of(question));
+        when(answerRepository.findByQuestionId(10L)).thenReturn(List.of());
+        ArgumentCaptor<Answer> saved = ArgumentCaptor.forClass(Answer.class);
+        when(answerRepository.save(saved.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        sessionService().addAnswer(
+                "a@example.com", 5L, 10L,
+                new com.interview.backend.interview.dto.CreateAnswerRequest("답변", null, null, null, 128f, -4f, 180f));
+
+        assertThat(saved.getValue().getGazeStabilityScore()).isEqualTo(100f);
+        assertThat(saved.getValue().getVoiceTremorScore()).isEqualTo(0f);
+        assertThat(saved.getValue().getSpeakingRateWpm()).isEqualTo(180f);
     }
 
     @Test

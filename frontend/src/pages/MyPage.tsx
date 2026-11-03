@@ -134,7 +134,7 @@ export default function MyPage() {
                 title={session.jobRole ? JOB_ROLE_LABELS[session.jobRole] : '모의면접'}
                 date={formatDate(session.startedAt)}
                 questionCount={session.questionCount ?? session.questions.length}
-                mode={session.mode === 'PRACTICE' ? 'practice' : undefined}
+                mode={session.mode === 'LIVE' ? 'live' : 'practice'}
                 score={session.overallContentScore ?? undefined}
                 onReview={() => handleReview(session.sessionId)}
                 isLast={index === recentInterviews.length - 1}

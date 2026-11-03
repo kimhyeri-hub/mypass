@@ -18,10 +18,8 @@ import { InterviewSetupProvider } from './context/InterviewSetupContext';
 import FlowSidebar from './components/FlowSidebar';
 import { LIVE_INTERVIEW_ENABLED } from './utils/features';
 
-// 면접 흐름(프로젝트 등록 ~ AI 면접관)에서 공통으로 쓰는 폼 데이터를
+// 면접 흐름(프로젝트 등록 ~ AI 면접)에서 공통으로 쓰는 폼 데이터를
 // 하나의 Provider로 감싸서, 단계를 이동해도 값이 유지되도록 합니다.
-// 실전면접 화면은 사이드바 없는 별도 레이아웃을 쓰지만 같은 데이터를 공유해야 하므로
-// Provider는 그 둘을 함께 감싸는 바깥쪽 레이아웃에 둡니다.
 function InterviewProviderLayout() {
   return (
     <InterviewSetupProvider>
@@ -39,6 +37,18 @@ function InterviewFlowLayout() {
         <div className="h-fit w-full max-w-[620px] rounded-[28px] border border-stroke bg-white p-10 shadow-[0_24px_48px_-32px_rgba(30,18,64,0.18)]">
           <Outlet />
         </div>
+      </main>
+    </div>
+  );
+}
+
+// 실전면접용: 같은 사이드바를 두되, 카메라·대화 화면이 넓게 쓰이도록 흰 카드 없이 가득 채웁니다.
+function InterviewWideLayout() {
+  return (
+    <div className="flex min-h-screen bg-canvas">
+      <FlowSidebar />
+      <main className="min-w-0 flex-1">
+        <Outlet />
       </main>
     </div>
   );
@@ -66,12 +76,12 @@ export default function App() {
           <Route path="/interview" element={<InterviewScreen />} />
         </Route>
 
-        {/* 실전면접: AI 음성 질문 + 음성 답변. 사이드바 없이 화면 전체를 사용합니다.
-            아직 '준비 중'이라 주소로 직접 들어와도 면접 설정 화면으로 돌려보냅니다. */}
-        <Route
-          path="/interview/live"
-          element={LIVE_INTERVIEW_ENABLED ? <LiveInterviewScreen /> : <Navigate to="/interview/setup" replace />}
-        />
+        <Route element={<InterviewWideLayout />}>
+          <Route
+            path="/interview/live"
+            element={LIVE_INTERVIEW_ENABLED ? <LiveInterviewScreen /> : <Navigate to="/interview/setup" replace />}
+          />
+        </Route>
 
         {/* 면접 결과/AI 분석 화면. 모의·실전 모두 마지막 질문 후 여기로 옵니다. */}
         <Route path="/interview/result" element={<InterviewResult />} />

@@ -363,6 +363,9 @@ public class InterviewSessionService {
                 request.videoUrl(),
                 request.durationSec()
         );
+        answer.setGazeStabilityScore(clampScore(request.gazeStabilityScore(), 100f));
+        answer.setVoiceTremorScore(clampScore(request.voiceTremorScore(), 100f));
+        answer.setSpeakingRateWpm(clampScore(request.speakingRateWpm(), 400f));
         AnswerResponse response = AnswerResponse.from(answerRepository.save(answer));
 
         autoCompleteIfLastQuestionAnswered(session, question);
@@ -508,5 +511,13 @@ public class InterviewSessionService {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "설정한 질문 개수(" + limit + "개)에 도달했습니다. 면접을 종료해주세요.");
         }
+    }
+
+    // 브라우저가 보낸 시선·목소리·말 속도. 없거나 숫자가 아니면 저장하지 않고, 범위를 벗어나면 자른다.
+    private static Float clampScore(Float value, float max) {
+        if (value == null || value.isNaN() || value.isInfinite()) {
+            return null;
+        }
+        return Math.min(max, Math.max(0f, value));
     }
 }

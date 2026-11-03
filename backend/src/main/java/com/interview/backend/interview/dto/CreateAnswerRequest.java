@@ -4,5 +4,8 @@ public record CreateAnswerRequest(
         String answerText,
         String audioUrl,
         String videoUrl,
-        Integer durationSec
+        Integer durationSec,
+        Float gazeStabilityScore,
+        Float voiceTremorScore,
+        Float speakingRateWpm
 ) {}

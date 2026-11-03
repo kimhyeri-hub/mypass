@@ -50,6 +50,9 @@ export interface AnswerResponse {
   audioUrl: string | null;
   videoUrl: string | null;
   durationSec: number | null;
+  gazeStabilityScore: number | null;
+  voiceTremorScore: number | null;
+  speakingRateWpm: number | null;
   relevanceScore: number | null;
   clarityScore: number | null;
   feedbackText: string | null;
@@ -70,7 +73,7 @@ export interface QuestionResponse {
 export type SessionStatus = 'IN_PROGRESS' | 'COMPLETED';
 export type SessionJobRole = 'BACKEND' | 'FRONTEND' | 'FULLSTACK' | 'AI' | 'DATA';
 export type SessionDifficulty = 'EASY' | 'NORMAL' | 'HARD';
-export type SessionMode = 'PRACTICE';
+export type SessionMode = 'PRACTICE' | 'LIVE';
 
 export interface SessionResponse {
   sessionId: number;
@@ -140,6 +143,9 @@ export async function generateNextQuestion(
 
 export interface SubmitAnswerPayload {
   answerText: string;
+  gazeStabilityScore?: number | null;
+  voiceTremorScore?: number | null;
+  speakingRateWpm?: number | null;
 }
 
 export async function submitAnswer(

@@ -49,8 +49,8 @@ export default function InterviewHistoryList() {
   const filtered = useMemo(() => {
     const keyword = search.trim().toLowerCase();
     return completedSessions.filter((session) => {
-      // 백엔드 InterviewMode는 아직 PRACTICE만 있어서, 실전면접(live)으로 저장되는 세션은 없다.
-      const matchesMode = modeFilter === 'all' || modeFilter === 'practice';
+      const sessionMode = session.mode === 'LIVE' ? 'live' : 'practice';
+      const matchesMode = modeFilter === 'all' || modeFilter === sessionMode;
       const title = session.jobRole ? JOB_ROLE_LABELS[session.jobRole] : '모의면접';
       const matchesKeyword = !keyword || title.toLowerCase().includes(keyword);
       return matchesMode && matchesKeyword;
@@ -135,7 +135,7 @@ export default function InterviewHistoryList() {
                 title={session.jobRole ? JOB_ROLE_LABELS[session.jobRole] : '모의면접'}
                 date={formatDate(session.startedAt)}
                 questionCount={session.questionCount ?? session.questions.length}
-                mode="practice"
+                mode={session.mode === 'LIVE' ? 'live' : 'practice'}
                 score={session.overallContentScore ?? undefined}
                 onReview={() => navigate(`/interview/result/${session.sessionId}`)}
                 isLast={index === pageItems.length - 1}

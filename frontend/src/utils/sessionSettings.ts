@@ -24,7 +24,6 @@ export function toSessionDifficulty(difficulty: InterviewSetupData['difficulty']
   return DIFFICULTY_TO_ENUM[difficulty];
 }
 
-// 백엔드 InterviewMode는 지금 PRACTICE만 있다. 실전면접(live)은 아직 백엔드 모드가 없어서 보내지 않는다.
-export function toSessionMode(mode: InterviewSetupData['mode']): SessionMode | undefined {
-  return mode === 'practice' ? 'PRACTICE' : undefined;
+export function toSessionMode(mode: InterviewSetupData['mode']): SessionMode {
+  return mode === 'live' ? 'LIVE' : 'PRACTICE';
 }

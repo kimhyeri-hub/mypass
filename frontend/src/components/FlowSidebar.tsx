@@ -12,7 +12,11 @@ const steps = [
 
 export default function FlowSidebar() {
   const location = useLocation();
-  const currentIndex = steps.findIndex((step) => step.path === location.pathname);
+  const currentIndex = steps.findIndex((step) =>
+    step.path === '/interview'
+      ? location.pathname === '/interview' || location.pathname === '/interview/live'
+      : step.path === location.pathname,
+  );
 
   return (
     <aside className="sticky top-0 h-screen w-64 shrink-0 border-r border-stroke bg-white px-7 py-9">

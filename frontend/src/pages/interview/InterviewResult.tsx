@@ -4,7 +4,7 @@ import Logo from '../../components/Logo';
 import { useInterviewSetup } from '../../context/InterviewSetupContext';
 import ErrorState from '../../components/ErrorState';
 import { getSessionResult } from '../../api/interview';
-import type { QuestionResponse, SessionJobRole, SessionResponse } from '../../api/interview';
+import type { AnswerResponse, QuestionResponse, SessionJobRole, SessionResponse } from '../../api/interview';
 import { ApiError } from '../../api/client';
 
 const JOB_ROLE_LABELS: Record<SessionJobRole, string> = {
@@ -30,9 +30,33 @@ function formatDuration(startedAt: string, endedAt: string | null) {
   return `${Math.floor(totalSec / 60)}분 ${totalSec % 60}초`;
 }
 
+function finalAnswer(question: QuestionResponse) {
+  return question.answers.find((answer) => answer.isFinal);
+}
+
 function finalAnswerText(question: QuestionResponse) {
-  const text = question.answers.find((a) => a.isFinal)?.answerText;
+  const text = finalAnswer(question)?.answerText;
   return text && text.trim() ? text : null;
+}
+
+function pitchLabel(score: number) {
+  if (score < 25) return '작음';
+  if (score < 55) return '보통';
+  return '큼';
+}
+
+function deliveryLine(answer: AnswerResponse | undefined) {
+  if (!answer) return null;
+  const parts: string[] = [];
+  if (answer.gazeStabilityScore != null) parts.push(`화면을 본 비율 ${Math.round(answer.gazeStabilityScore)}%`);
+  if (answer.voiceTremorScore != null) parts.push(`목소리 높낮이 변화 ${pitchLabel(answer.voiceTremorScore)}`);
+  if (answer.speakingRateWpm != null) parts.push(`말 속도 분당 ${Math.round(answer.speakingRateWpm)}어절`);
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
+function averageNumber(values: number[]) {
+  if (values.length === 0) return null;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
 // 4개 점수 중 값이 있는 것만 평균 낸다. 평가 전이라 모두 null이면 null.
@@ -164,6 +188,23 @@ export default function InterviewResult() {
   questions
     .filter((q) => q.questionType !== 'INTRO')
     .forEach((q, index) => projectQuestionNumbers.set(q.questionId, index + 1));
+  const finalAnswers = questions
+    .map((question) => finalAnswer(question))
+    .filter((answer): answer is AnswerResponse => answer != null);
+  const gazeValues = finalAnswers
+    .map((answer) => answer.gazeStabilityScore)
+    .filter((score): score is number => score != null);
+  const voiceValues = finalAnswers
+    .map((answer) => answer.voiceTremorScore)
+    .filter((score): score is number => score != null);
+  const rateValues = finalAnswers
+    .map((answer) => answer.speakingRateWpm)
+    .filter((score): score is number => score != null);
+  const gazeAverage = averageNumber(gazeValues);
+  const voiceAverage = averageNumber(voiceValues);
+  const rateAverage = averageNumber(rateValues);
+  const hasDelivery = gazeAverage != null || voiceAverage != null || rateAverage != null;
+  const isLive = current.mode === 'LIVE';
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -171,7 +212,9 @@ export default function InterviewResult() {
 
       <div className="mx-auto max-w-[760px] px-6 py-11">
         <div className="mb-3.5 flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-card px-2.5 py-1 text-[11.5px] font-bold text-brand">모의면접</span>
+          <span className="rounded-full bg-card px-2.5 py-1 text-[11.5px] font-bold text-brand">
+            {current.mode === 'LIVE' ? '실전면접' : '모의면접'}
+          </span>
           {isReviewMode && (
             <span className="rounded-full bg-[#F4F2FA] px-2.5 py-1 text-[11.5px] font-bold text-muted">
               지난 면접 다시보기
@@ -257,13 +300,43 @@ export default function InterviewResult() {
           </div>
         </div>
 
+        {(isLive || hasDelivery) && (
+          <>
+            <div className="mb-3.5 text-[15px] font-bold text-ink">말하는 동안의 모습</div>
+            <div className="mb-8 rounded-2xl border border-stroke bg-white p-6">
+              {hasDelivery ? (
+                <>
+                  <p className="m-0 mb-3 text-[13px] leading-relaxed text-muted">
+                    면접이 끝난 뒤에만 보여 드려요. 불안한지 판단한 결과가 아니라, 말하는 동안 화면을 봤는지와 목소리 높낮이를 센 값이에요.
+                  </p>
+                  <p className="m-0 text-[13.5px] leading-relaxed text-[#3A3355]">
+                    {[
+                      gazeAverage != null ? `화면을 본 비율 ${Math.round(gazeAverage)}%` : null,
+                      voiceAverage != null ? `목소리 높낮이 변화 ${pitchLabel(voiceAverage)}` : null,
+                      rateAverage != null ? `말 속도 분당 ${Math.round(rateAverage)}어절` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
+                </>
+              ) : (
+                <p className="m-0 text-[13.5px] leading-relaxed text-[#3A3355]">
+                  음성으로 답변하지 않아서 시선, 목소리 높낮이, 말 속도는 보이지 않아요.
+                </p>
+              )}
+            </div>
+          </>
+        )}
+
         <div className="mb-3.5 text-[15px] font-bold text-ink">질문별 리뷰</div>
         <div className="mb-9 flex flex-col gap-3.5">
           {questions.map((question) => {
             const isIntro = question.questionType === 'INTRO';
             const isFollowUp = question.parentQuestionId !== null;
+            const answer = finalAnswer(question);
             const answerText = finalAnswerText(question);
-            const feedback = question.answers.find((a) => a.isFinal)?.feedbackText;
+            const feedback = answer?.feedbackText;
+            const behavior = deliveryLine(answer);
             return (
               <div key={question.questionId} className="rounded-2xl border border-stroke bg-white p-6">
                 <div className="mb-3.5 flex items-start justify-between gap-4">
@@ -286,6 +359,10 @@ export default function InterviewResult() {
                 <div className="rounded-xl bg-[#FAF9FE] px-3.5 py-3 text-[13px] leading-relaxed text-muted">
                   {answerText ? `"${answerText}"` : '(답변 없음)'}
                 </div>
+                {behavior && <p className="mb-0 mt-3 text-[13px] leading-relaxed text-[#3A3355]">{behavior}</p>}
+                {isLive && answerText && !behavior && (
+                  <p className="mb-0 mt-3 text-[13px] leading-relaxed text-muted">음성으로 답변하지 않아서 보이지 않아요.</p>
+                )}
                 {feedback && (
                   <div className="mt-3 flex gap-2">
                     <i className="ti ti-sparkles mt-0.5 text-sm text-brand" aria-hidden="true" />
@@ -315,7 +392,11 @@ export default function InterviewResult() {
         </div>
 
         <p className="mt-6 text-center text-xs text-muted">
-          ※ AI 평가는 답변 텍스트를 기준으로 한 연습용 참고 피드백이에요. 발음이나 말하기 속도는 평가하지 않아요.
+          {hasDelivery
+            ? '※ AI 점수는 답변 내용만 봐요. 화면을 본 비율과 목소리 높낮이는 그 점수와 따로 보여 드려요.'
+            : isLive
+              ? '※ AI 점수는 답변 내용만 봐요. 시선과 목소리는 음성으로 답한 질문에만 보여 드려요.'
+              : '※ AI 평가는 답변 텍스트를 기준으로 한 연습용 참고 피드백이에요. 발음이나 말하기 속도는 평가하지 않아요.'}
         </p>
       </div>
     </div>
