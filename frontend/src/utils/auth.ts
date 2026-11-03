@@ -21,6 +21,9 @@ function isTokenUnexpired(token: string): boolean {
   }
 }
 
+// 저장된 로그인 정보가 지워졌을 때(로그아웃, 만료) 화면의 다른 부분이 알 수 있도록 보내는 이벤트 이름.
+export const AUTH_CLEARED_EVENT = 'mypass:auth-cleared';
+
 export function clearStoredAuth() {
   try {
     localStorage.removeItem(TOKEN_KEY);
@@ -28,6 +31,7 @@ export function clearStoredAuth() {
   } catch {
     // localStorage를 쓸 수 없는 환경이면 지울 것도 없다.
   }
+  window.dispatchEvent(new Event(AUTH_CLEARED_EVENT));
 }
 
 // 만료되지 않은 토큰이 있으면 저장된 사용자 정보를, 없으면 null을 돌려준다.

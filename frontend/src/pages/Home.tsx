@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import AuthLink from '../components/AuthLink';
 import Navbar from '../components/Navbar';
 import Reveal from '../components/Reveal';
 import HeroChatPreview from '../components/HeroChatPreview';
@@ -63,12 +63,13 @@ export default function Home() {
             className="mt-8 flex animate-rise flex-wrap justify-center gap-3 lg:justify-start"
             style={{ animationDelay: '0.4s' }}
           >
-            <Link
-              to="/signup"
+            <AuthLink
+              loggedInTo="/interview/project"
+              loggedOutTo="/signup"
               className="rounded-xl bg-brand px-[26px] py-[15px] text-[15px] font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-brand-dark hover:shadow-[0_10px_24px_-10px_rgba(108,78,224,0.6)]"
             >
               무료로 시작하기
-            </Link>
+            </AuthLink>
             <button
               type="button"
               onClick={scrollToHow}

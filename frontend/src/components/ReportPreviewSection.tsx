@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import type { ReactNode, RefObject } from 'react';
-import { Link } from 'react-router-dom';
+import AuthLink from './AuthLink';
 import LogoMark from './LogoMark';
 import Reveal from './Reveal';
+import { useIsLoggedIn } from '../hooks/useIsLoggedIn';
 import { useVisibleLoop } from '../hooks/useVisibleLoop';
 import { sleep, tween, typeText } from '../utils/motion';
 
@@ -341,6 +342,8 @@ function QuestionCard() {
 }
 
 export default function ReportPreviewSection() {
+  const loggedIn = useIsLoggedIn();
+
   return (
     <section className="relative mx-auto max-w-[960px] px-[6vw] pb-20 pt-10">
       <div
@@ -396,15 +399,18 @@ export default function ReportPreviewSection() {
           <div className="flex-1 text-sm font-bold text-ink">
             전체 리포트가 궁금하다면?
             <span className="mt-0.5 block text-xs font-normal text-muted">
-              로그인하면 실제 리포트 화면을 볼 수 있어요
+              {loggedIn
+                ? '로그인했으니 바로 볼 수 있어요!'
+                : '로그인하면 실제 리포트 화면을 볼 수 있어요'}
             </span>
           </div>
-          <Link
-            to="/login"
+          <AuthLink
+            loggedInTo="/mypage/history"
+            loggedOutTo="/login"
             className="whitespace-nowrap rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-brand-dark"
           >
-            로그인하고 보기
-          </Link>
+            {loggedIn ? '내 리포트 보기' : '로그인하고 보기'}
+          </AuthLink>
         </div>
       </Reveal>
     </section>
