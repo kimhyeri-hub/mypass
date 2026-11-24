@@ -8,10 +8,14 @@ import ListSkeleton from '../components/ListSkeleton';
 import InlineError from '../components/InlineError';
 import { getMySessions } from '../api/interview';
 import type { SessionResponse } from '../api/interview';
+import { getMyResumes } from '../api/resumes';
 import { JOB_ROLE_LABELS } from '../utils/jobRoleLabels';
-import { initialResumes } from '../utils/resumes';
+import { toResumeItem } from '../utils/resumes';
+import type { ResumeItem } from '../utils/resumes';
 
 const RECENT_COUNT = 3;
+// 한 줄에 이력서 카드 두 장과 "새 이력서 추가" 카드를 둔다. 더 많으면 관리 화면에서 본다.
+const RESUME_PREVIEW_COUNT = 2;
 
 function getUserName(): string {
   try {
@@ -47,6 +51,22 @@ export default function MyPage() {
 
   useEffect(() => {
     loadSessions();
+  }, []);
+
+  // 이력서 목록을 못 받아도 마이페이지 나머지는 보여 준다. 개수는 '-'로 표시한다.
+  const [resumes, setResumes] = useState<ResumeItem[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    getMyResumes()
+      .then((list) => {
+        if (!cancelled) setResumes(list.map(toResumeItem));
+      })
+      .catch(() => {
+        if (!cancelled) setResumes(null);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const completedSessions = useMemo(
@@ -90,26 +110,32 @@ export default function MyPage() {
       <DashboardHeader />
 
       <div className="mx-auto max-w-[1040px] px-8 py-10">
-        <div className="mb-8 flex items-center justify-between gap-6 rounded-3xl bg-gradient-to-r from-brand-dark via-brand to-[#8A6BF2] px-10 py-9 text-white shadow-[0_20px_40px_-20px_rgba(108,78,224,0.55)]">
+        {/* 인사 배너: 보라 그라데이션 + 알약 모양 버튼 */}
+        <div className="mb-8 flex min-h-[150px] flex-col justify-between gap-5 rounded-[22px] bg-[linear-gradient(120deg,#6A2BD6_0%,#8B55EE_65%,#A97BF7_100%)] px-10 py-8 text-white shadow-[0_24px_40px_-22px_rgba(120,60,230,0.75),inset_0_1px_0_rgba(255,255,255,0.35)] md:flex-row md:items-center">
           <div>
-            <div className="font-sans text-2xl font-bold tracking-tight">
+            <div className="font-sans text-[30px] font-extrabold leading-tight tracking-tight">
               안녕하세요, {userName}님
             </div>
-            <p className="mt-1.5 text-sm text-[#DCD3FA]">오늘도 실전처럼 연습해볼까요</p>
+            <p className="mt-2 text-[15px] text-[#EDE3FF]">오늘도 실전처럼 연습해볼까요</p>
           </div>
           <button
             onClick={handleStartInterview}
-            className="flex flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-white px-6 py-3.5 text-sm font-bold text-brand-dark shadow-[0_10px_20px_-8px_rgba(0,0,0,0.25)] hover:bg-[#F6F3FE]"
+            className="flex flex-shrink-0 items-center gap-3 whitespace-nowrap rounded-full bg-white py-3.5 pl-[30px] pr-[18px] text-base font-extrabold text-[#4A1FA8] shadow-[0_14px_24px_-12px_rgba(60,20,130,0.55)] hover:bg-[#F3EEFF]"
           >
-            <i className="ti ti-microphone-2 text-base" aria-hidden="true" />
             새 모의면접 시작하기
+            <span
+              className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-[#8B5CF6] text-sm text-white"
+              aria-hidden="true"
+            >
+              →
+            </span>
           </button>
         </div>
 
         <div className="mb-10 grid grid-cols-3 gap-4">
           <StatCard label="총 면접 횟수" value={`${completedSessions.length}회`} icon="ti-history" />
           <StatCard label="이번 달 연습" value={`${thisMonthCount}회`} icon="ti-calendar-stats" />
-          <StatCard label="등록한 이력서" value={`${initialResumes.length}개`} icon="ti-file-text" />
+          <StatCard label="등록한 이력서" value={resumes ? `${resumes.length}개` : '-'} icon="ti-file-text" />
         </div>
 
         <div className="mb-3.5 flex items-center justify-between">
@@ -161,7 +187,7 @@ export default function MyPage() {
           </button>
         </div>
         <div className="flex gap-3.5">
-          {initialResumes.map((resume) => (
+          {(resumes ?? []).slice(0, RESUME_PREVIEW_COUNT).map((resume) => (
             <ResumeCard key={resume.id} title={resume.title} uploadedDate={resume.uploadedDate} />
           ))}
           <AddResumeCard onClick={handleManageResumes} />

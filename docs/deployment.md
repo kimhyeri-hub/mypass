@@ -49,6 +49,14 @@ scp -i "yakssook-key.pem 경로" "backend/target/backend-0.0.1-SNAPSHOT.jar" ubu
 
 **설정 파일이 바뀌었다면 같이 전송** (`application-example.yml`을 참고해서 실제 값 채운 파일을, DB 비밀번호만 서버용으로 해서 `~/application.yml`로 전송 — 이 파일은 `backend.jar`와 같은 디렉토리에 있어야 자동으로 인식됨)
 
+**새 테이블이 생긴 버전을 올릴 때는 JAR보다 테이블을 먼저 만든다**
+
+`ddl-auto: validate`라서 코드에 있는 테이블이 DB에 없으면 앱이 시작하자마자 종료된다. 이력서 저장 기능(`resumes` 테이블)을 올릴 때가 그런 경우다. `schema.sql` 맨 아래의 `CREATE TABLE IF NOT EXISTS resumes ...` 문장을 서버 DB에서 한 번 실행한다. 이미 있으면 아무 일도 하지 않으므로 여러 번 실행해도 안전하다.
+
+서버에서 `sudo mysql interview_db`로 접속한 뒤 그 문장만 붙여 넣는다. `schema.sql` 파일째 실행하면 이미 있는 다른 테이블 때문에 오류가 나므로 `resumes` 문장만 실행한다.
+
+순서: 테이블 만들기 → JAR와 화면 파일 올리기 → 백엔드 재시작. 올린 이력서 파일은 JAR 안이 아니라 서버의 `uploads` 폴더에 저장되므로 JAR를 바꿔도 남는다.
+
 **서버에서 기존 앱 종료 후 재실행**
 ```bash
 ps aux | grep backend.jar      # PID 확인

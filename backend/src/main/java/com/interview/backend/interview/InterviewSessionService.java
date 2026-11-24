@@ -4,6 +4,7 @@ import com.interview.backend.ai.AiInterviewService;
 import com.interview.backend.ai.NextQuestionDecision;
 import com.interview.backend.ai.NextQuestionType;
 import com.interview.backend.ai.SessionEvaluation;
+import com.interview.backend.interview.dto.AnswerCoachResponse;
 import com.interview.backend.interview.dto.AnswerHintResponse;
 import com.interview.backend.interview.dto.AnswerResponse;
 import com.interview.backend.interview.dto.CompleteSessionRequest;
@@ -244,6 +245,7 @@ public class InterviewSessionService {
 
     /**
      * 저장된 질문의 모범답안 힌트만 생성한다. 질문, 답변, 평가 결과는 바꾸지 않는다.
+     * 면접 진행 중 "답변 힌트 보기"에서만 쓴다.
      */
     public AnswerHintResponse generateAnswerHint(String userEmail, Long sessionId, Long questionId) {
         User user = getUser(userEmail);
@@ -270,6 +272,37 @@ public class InterviewSessionService {
                 isIntroQuestion(question),
                 parentQuestionText);
         return new AnswerHintResponse(hint);
+    }
+
+    /**
+     * 결과지용 보완 가이드. 모범답안 대신 키워드와 짧은 보완 포인트만 만든다.
+     * 끝난 면접에서도 쓸 수 있게 세션 상태는 보지 않고, 본인 세션/질문인지만 확인한다.
+     */
+    public AnswerCoachResponse generateAnswerCoach(String userEmail, Long sessionId, Long questionId) {
+        User user = getUser(userEmail);
+        InterviewSession session = getOwnedSession(user, sessionId);
+
+        Question question = questionRepository.findById(questionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "질문을 찾을 수 없습니다."));
+        if (!question.getSessionId().equals(session.getSessionId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "해당 세션의 질문이 아닙니다.");
+        }
+
+        String parentQuestionText = null;
+        if (question.getParentQuestionId() != null) {
+            parentQuestionText = questionRepository.findById(question.getParentQuestionId())
+                    .map(Question::getQuestionText)
+                    .orElse(null);
+        }
+
+        var tips = aiInterviewService.generateAnswerCoach(
+                collectProjectContext(session.getProjectId()),
+                session.getJobRole(),
+                question.getQuestionText(),
+                isIntroQuestion(question),
+                parentQuestionText,
+                findFinalAnswerText(questionId));
+        return new AnswerCoachResponse(tips.keywords(), tips.improvements());
     }
 
     /**

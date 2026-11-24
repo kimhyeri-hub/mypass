@@ -95,3 +95,18 @@ CREATE TABLE answers (
   answered_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_answers_question FOREIGN KEY (question_id) REFERENCES questions(question_id) ON DELETE CASCADE
 );
+
+-- 내 이력서 관리에서 올려 둔 이력서. 면접 때 올리는 project_files와는 별개의 목록이다.
+-- 서버(EC2)에는 배포 전에 이 문장을 먼저 실행해야 한다. (ddl-auto: validate라서 테이블이 없으면 앱이 시작하자마자 종료됨)
+CREATE TABLE IF NOT EXISTS resumes (
+  resume_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  original_name VARCHAR(255) NOT NULL,
+  file_type VARCHAR(20),
+  file_size BIGINT NOT NULL,
+  storage_key VARCHAR(500) NOT NULL,
+  is_default BOOLEAN NOT NULL DEFAULT FALSE,
+  uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_resumes_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);

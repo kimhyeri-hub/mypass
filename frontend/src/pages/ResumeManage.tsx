@@ -3,67 +3,73 @@ import { useNavigate } from 'react-router-dom';
 import DashboardHeader from '../components/DashboardHeader';
 import ListSkeleton from '../components/ListSkeleton';
 import InlineError from '../components/InlineError';
-import { initialResumes } from '../utils/resumes';
+import { deleteResume, getMyResumes, replaceResume, uploadResume } from '../api/resumes';
+import { toResumeItem, validateResumeFile } from '../utils/resumes';
 import type { ResumeItem } from '../utils/resumes';
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
 
 export default function ResumeManage() {
   const navigate = useNavigate();
-  const [resumes, setResumes] = useState<ResumeItem[]>(initialResumes);
+  const [resumes, setResumes] = useState<ResumeItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const replaceTargetId = useRef<string | null>(null);
 
-  // TODO: 백엔드 연동 시 setTimeout 대신 실제 이력서 목록 조회 API를 호출하고,
-  // 실패하면 setLoadError(true)로 에러 배너를 보여주세요.
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   useEffect(() => {
     if (!isLoading) return;
-    const timer = setTimeout(() => {
-      setLoadError(false);
-      setIsLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
+    let cancelled = false;
+    getMyResumes()
+      .then((list) => {
+        if (cancelled) return;
+        setResumes(list.map(toResumeItem));
+        setLoadError(false);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [isLoading]);
 
-  const handleFileSelected = (files: FileList | null) => {
+  const handleFileSelected = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const file = files[0];
-    const sizeLabel = `${Math.max(1, Math.round(file.size / 1024))}KB`;
-    const fileType = (file.name.split('.').pop() || 'PDF').toUpperCase();
+    const targetId = replaceTargetId.current;
+    replaceTargetId.current = null;
+    if (fileInputRef.current) fileInputRef.current.value = '';
 
-    // TODO: 백엔드 연동 시 실제로 파일을 업로드하고, 응답으로 받은 이력서 정보로 교체합니다.
-    if (replaceTargetId.current) {
-      const targetId = replaceTargetId.current;
-      setResumes((prev) =>
-        prev.map((resume) =>
-          resume.id === targetId
-            ? {
-                ...resume,
-                title: file.name.replace(/\.[^/.]+$/, ''),
-                uploadedDate: formatToday(),
-                fileType,
-                sizeLabel,
-              }
-            : resume,
-        ),
-      );
-      replaceTargetId.current = null;
-    } else {
-      setResumes((prev) => [
-        ...prev,
-        {
-          id: `${Date.now()}`,
-          title: file.name.replace(/\.[^/.]+$/, ''),
-          uploadedDate: formatToday(),
-          fileType,
-          sizeLabel,
-          isDefault: prev.length === 0,
-        },
-      ]);
+    const invalid = validateResumeFile(file);
+    if (invalid) {
+      setActionError(invalid);
+      return;
     }
 
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    setActionError('');
+    setIsSaving(true);
+    try {
+      if (targetId) {
+        const saved = toResumeItem(await replaceResume(Number(targetId), file));
+        setResumes((prev) => prev.map((resume) => (resume.id === targetId ? saved : resume)));
+      } else {
+        const saved = toResumeItem(await uploadResume(file));
+        setResumes((prev) => [...prev, saved]);
+      }
+    } catch (error) {
+      setActionError(errorMessage(error, '이력서를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.'));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleAddClick = () => {
@@ -76,9 +82,19 @@ export default function ResumeManage() {
     fileInputRef.current?.click();
   };
 
-  const handleDelete = (id: string) => {
-    // TODO: 백엔드 연동 시 삭제 API 호출 후 목록을 갱신합니다.
-    setResumes((prev) => prev.filter((resume) => resume.id !== id));
+  const handleDelete = async (id: string) => {
+    setActionError('');
+    setIsSaving(true);
+    try {
+      await deleteResume(Number(id));
+      // 기본 이력서를 지우면 서버가 남은 것 중 가장 먼저 올린 이력서를 기본으로 올리므로 목록을 다시 받는다.
+      const list = await getMyResumes();
+      setResumes(list.map(toResumeItem));
+    } catch (error) {
+      setActionError(errorMessage(error, '이력서를 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.'));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -108,12 +124,22 @@ export default function ResumeManage() {
           <button
             type="button"
             onClick={handleAddClick}
-            className="flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-dark"
+            disabled={isSaving}
+            className="flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
           >
             <i className="ti ti-plus text-base" aria-hidden="true" />
-            이력서 추가
+            {isSaving ? '저장 중…' : '이력서 추가'}
           </button>
         </div>
+
+        {actionError && (
+          <div
+            role="alert"
+            className="mb-4 rounded-xl border border-[#F3D7DC] bg-[#FDF3F5] px-4 py-3 text-[13px] text-[#C0455A]"
+          >
+            {actionError}
+          </div>
+        )}
 
         {isLoading ? (
           <div className="mb-4">
@@ -156,7 +182,8 @@ export default function ResumeManage() {
                   <button
                     type="button"
                     onClick={() => handleReplaceClick(resume.id)}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-stroke text-muted hover:text-ink"
+                    disabled={isSaving}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-stroke text-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
                     title="교체하기"
                   >
                     <i className="ti ti-replace text-base" aria-hidden="true" />
@@ -164,7 +191,8 @@ export default function ResumeManage() {
                   <button
                     type="button"
                     onClick={() => handleDelete(resume.id)}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-stroke text-muted hover:border-[#F3D7DC] hover:text-[#C0455A]"
+                    disabled={isSaving}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-stroke text-muted hover:border-[#F3D7DC] hover:text-[#C0455A] disabled:cursor-not-allowed disabled:opacity-50"
                     title="삭제하기"
                   >
                     <i className="ti ti-trash text-base" aria-hidden="true" />
@@ -183,7 +211,8 @@ export default function ResumeManage() {
         <button
           type="button"
           onClick={handleAddClick}
-          className="w-full rounded-2xl border-[1.5px] border-dashed border-stroke bg-white py-9 text-center text-muted hover:border-brand hover:text-brand"
+          disabled={isSaving}
+          className="w-full rounded-2xl border-[1.5px] border-dashed border-stroke bg-white py-9 text-center text-muted hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
         >
           <i className="ti ti-cloud-upload mb-2.5 block text-2xl" aria-hidden="true" />
           <div className="mb-1 text-sm font-bold text-ink">이력서를 클릭해서 업로드하세요</div>
@@ -192,9 +221,4 @@ export default function ResumeManage() {
       </div>
     </div>
   );
-}
-
-function formatToday() {
-  const d = new Date();
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
 }

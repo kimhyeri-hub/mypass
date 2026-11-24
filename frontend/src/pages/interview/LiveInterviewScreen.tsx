@@ -20,6 +20,9 @@ interface QuestionItem {
 }
 
 const LEVEL_BARS = 14;
+/** 실전면접 질문당 답변 제한 시간(초). 넘으면 자동으로 제출하고 다음 질문으로 넘어간다. */
+const QUESTION_TIME_LIMIT_SEC = 90;
+const TIMEOUT_ANSWER_TEXT = '(시간 초과로 답변하지 않음)';
 
 function toQuestionItem(question: QuestionResponse): QuestionItem {
   return {
@@ -66,6 +69,72 @@ function LevelBars({ active, level }: { active: boolean; level: number }) {
   );
 }
 
+/** 카메라 옆 원형 답변시간 시계. remainingSec이 줄어들수록 링이 줄어든다. */
+function AnswerTimeRing({
+  remainingSec,
+  limitSec,
+  counting,
+  low,
+}: {
+  remainingSec: number;
+  limitSec: number;
+  counting: boolean;
+  low: boolean;
+}) {
+  const size = 118;
+  const stroke = 9;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const progress = Math.max(0, Math.min(1, remainingSec / limitSec));
+  const offset = circumference * (1 - progress);
+  const gradientId = low ? 'answerTimeLow' : 'answerTimeBrand';
+
+  return (
+    <div
+      className="relative flex h-[118px] w-[118px] items-center justify-center rounded-full bg-[#151225]/shadow-[0_12px_28px_-16px_rgba(0,0,0,0.65)] ring-1 ring-white/10"
+      role="timer"
+      aria-live="polite"
+      aria-label={counting ? `남은 답변 시간 ${remainingSec}초` : '답변 시간 대기 중'}
+    >
+      <svg width={size} height={size} className="-rotate-90" aria-hidden="true">
+        <defs>
+          <linearGradient id="answerTimeBrand" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#5CE1E6" />
+            <stop offset="55%" stopColor="#8B5CF6" />
+            <stop offset="100%" stopColor="#A78BFA" />
+          </linearGradient>
+          <linearGradient id="answerTimeLow" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#FB7185" />
+            <stop offset="100%" stopColor="#F43F5E" />
+          </linearGradient>
+        </defs>
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#2A2440" strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={`url(#${gradientId})`}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={counting ? offset : 0}
+          className="transition-[stroke-dashoffset] duration-1000 ease-linear"
+          opacity={counting ? 1 : 0.35}
+        />
+      </svg>
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+        <div className={`text-[11px] font-bold tracking-wide ${low && counting ? 'text-[#FDA4AF]' : 'text-[#5CE1E6]'}`}>
+          답변시간
+        </div>
+        <div className="mt-0.5 font-sans text-[34px] font-extrabold leading-none tabular-nums text-white">
+          {counting ? remainingSec : limitSec}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function LiveInterviewScreen() {
   const navigate = useNavigate();
   const { data } = useInterviewSetup();
@@ -83,10 +152,11 @@ export default function LiveInterviewScreen() {
   const [evaluationError, setEvaluationError] = useState<{ message: string; code?: number } | null>(null);
   const [started, setStarted] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-  const [answerElapsed, setAnswerElapsed] = useState(0);
+  const [questionElapsed, setQuestionElapsed] = useState(0);
   const [checkLevel, setCheckLevel] = useState(0);
   const [checkHasMic, setCheckHasMic] = useState(false);
   const evaluatingRef = useRef(false);
+  const autoTimeoutRef = useRef(false);
 
   useEffect(() => {
     if (sessionStartedRef.current) return;
@@ -122,6 +192,8 @@ export default function LiveInterviewScreen() {
   const shownAnswer = isListening ? transcript : answer;
   const micLevel = started ? voiceLevel : checkLevel;
   const hasMic = started ? isSupported : checkHasMic;
+  const questionRemainingSec = Math.max(0, QUESTION_TIME_LIMIT_SEC - questionElapsed);
+  const isQuestionTimeLow = phase === 'listening' && questionRemainingSec <= 15;
 
   useEffect(() => {
     if (started) return undefined;
@@ -175,10 +247,16 @@ export default function LiveInterviewScreen() {
   }, [started]);
 
   useEffect(() => {
-    if (!isListening) return undefined;
-    const timer = window.setInterval(() => setAnswerElapsed((value) => value + 1), 1000);
+    setQuestionElapsed(0);
+    autoTimeoutRef.current = false;
+  }, [currentQuestion?.questionId]);
+
+  // AI 질문 음성이 끝난 뒤(listening)부터 질문당 1분 30초를 센다.
+  useEffect(() => {
+    if (!started || phase !== 'listening') return undefined;
+    const timer = window.setInterval(() => setQuestionElapsed((value) => value + 1), 1000);
     return () => window.clearInterval(timer);
-  }, [isListening]);
+  }, [started, phase, currentQuestion?.questionId]);
 
   useEffect(() => {
     if (!started || !currentQuestion) return undefined;
@@ -233,7 +311,6 @@ export default function LiveInterviewScreen() {
         ...delivery,
       });
       setAnswer('');
-      setAnswerElapsed(0);
 
       if (isIntroQuestion) {
         const firstProjectQuestion = await generateQuestion(data.sessionId);
@@ -268,9 +345,22 @@ export default function LiveInterviewScreen() {
     }
     stopSpeaking();
     if (error) setError('');
-    setAnswerElapsed(0);
     startListening();
   };
+
+  // 질문당 1분 30초가 지나면 현재 답변(없으면 시간 초과 문구)으로 자동 제출하고 다음으로 넘어간다.
+  useEffect(() => {
+    if (!started || phase !== 'listening' || isSubmitting) return;
+    if (questionElapsed < QUESTION_TIME_LIMIT_SEC) return;
+    if (autoTimeoutRef.current) return;
+    autoTimeoutRef.current = true;
+
+    const text = (isListening ? transcript : answer).trim() || TIMEOUT_ANSWER_TEXT;
+    if (isListening) stopListening();
+    void handleSubmitAnswer(text);
+    // handleSubmitAnswer는 매 렌더마다 새로 만들어지므로, 시간 초과 시점의 값만 쓰도록 의존성을 좁힌다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [questionElapsed, phase, isSubmitting, started]);
 
   if (evaluationStatus === 'evaluating') {
     return (
@@ -405,7 +495,6 @@ export default function LiveInterviewScreen() {
             {phase === 'listening' && isListening ? (
               <div className="flex max-w-[520px] items-center gap-3.5 rounded-[24px_6px_24px_24px] bg-brand px-6 py-[17px] text-[15px] font-bold text-white">
                 <span>답변 듣는 중</span>
-                <span className="text-[13px] tabular-nums opacity-85">{formatTime(answerElapsed)}</span>
               </div>
             ) : phase === 'processing' ? (
               <div className="rounded-[24px_6px_24px_24px] bg-brand px-6 py-[17px] text-[15px] font-bold text-white">답변을 정리하고 있어요</div>
@@ -430,6 +519,14 @@ export default function LiveInterviewScreen() {
                 <span className="h-2 w-2 rounded-full bg-[#46D39A]" />내 카메라
               </div>
             )}
+            <div className="absolute right-3 top-3 z-10 sm:right-3.5 sm:top-3.5">
+              <AnswerTimeRing
+                remainingSec={questionRemainingSec}
+                limitSec={QUESTION_TIME_LIMIT_SEC}
+                counting={phase === 'listening'}
+                low={isQuestionTimeLow}
+              />
+            </div>
           </div>
 
           <div className="mx-2 mt-3.5 flex items-center gap-2.5 text-[12.5px] font-bold text-muted">
@@ -454,7 +551,13 @@ export default function LiveInterviewScreen() {
               <div className="truncate text-[15px] font-extrabold text-ink">
                 {phase === 'speaking' ? '질문 읽는 중' : phase === 'processing' ? '답변 저장 중' : isListening ? '답변 듣는 중' : '답변 대기'}
               </div>
-              <div className="mt-0.5 text-xs text-muted">{phase === 'speaking' ? '끝나면 마이크를 눌러 주세요' : '말로 답하거나 아래에 적어도 돼요'}</div>
+              <div className="mt-0.5 text-xs text-muted">
+                {phase === 'speaking'
+                  ? '끝나면 마이크를 눌러 주세요'
+                  : phase === 'processing'
+                    ? '답변을 저장하고 있어요'
+                    : '말로 답하거나 아래에 적어도 돼요'}
+              </div>
             </div>
             <button type="button" onClick={() => speak(currentQuestion.text)} disabled={isSpeaking || isSubmitting} className="whitespace-nowrap text-[13.5px] font-bold text-muted disabled:opacity-40">
               질문 다시 듣기

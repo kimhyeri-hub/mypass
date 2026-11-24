@@ -123,6 +123,16 @@ export async function fetchAnswerHint(sessionId: number, questionId: number): Pr
   return apiJson<AnswerHintResponse>('POST', `/api/sessions/${sessionId}/questions/${questionId}/hint`);
 }
 
+export interface AnswerCoachResponse {
+  keywords: string[];
+  improvements: string[];
+}
+
+/** 결과지용. 모범답안 대신 키워드와 짧은 보완 포인트를 받는다. */
+export async function fetchAnswerCoach(sessionId: number, questionId: number): Promise<AnswerCoachResponse> {
+  return apiJson<AnswerCoachResponse>('POST', `/api/sessions/${sessionId}/questions/${questionId}/coach`);
+}
+
 export async function generateQuestion(sessionId: number): Promise<QuestionResponse> {
   return apiJson<QuestionResponse>('POST', `/api/sessions/${sessionId}/questions/generate`);
 }

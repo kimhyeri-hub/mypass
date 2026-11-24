@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import Logo from '../../components/Logo';
 import { useInterviewSetup } from '../../context/InterviewSetupContext';
 import ErrorState from '../../components/ErrorState';
-import { getSessionResult } from '../../api/interview';
+import { fetchAnswerCoach, getSessionResult } from '../../api/interview';
 import type { AnswerResponse, QuestionResponse, SessionJobRole, SessionResponse } from '../../api/interview';
 import { ApiError } from '../../api/client';
 
@@ -71,6 +71,93 @@ function headline(score: number | null) {
   if (score >= 80) return '전반적으로 좋은 답변이었어요';
   if (score >= 60) return '기본기는 갖췄어요, 조금 더 다듬어 봐요';
   return '보완할 부분이 보여요';
+}
+
+// 결과지 질문별 리뷰의 "보완 포인트 보기".
+// 모범답안 대신 키워드와 짧은 보완 제안만 받아, 사용자가 스스로 다듬게 돕는다.
+function ResultAnswerCoach({ sessionId, questionId }: { sessionId: number; questionId: number }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [keywords, setKeywords] = useState<string[] | null>(null);
+  const [improvements, setImprovements] = useState<string[] | null>(null);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const toggle = () => {
+    if (isOpen) {
+      setIsOpen(false);
+      return;
+    }
+    setIsOpen(true);
+    if (keywords !== null || isLoading) return;
+
+    setIsLoading(true);
+    setError('');
+    fetchAnswerCoach(sessionId, questionId)
+      .then((result) => {
+        setKeywords(result.keywords);
+        setImprovements(result.improvements);
+      })
+      .catch((err: unknown) =>
+        setError(err instanceof ApiError ? err.message : '보완 포인트를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'),
+      )
+      .finally(() => setIsLoading(false));
+  };
+
+  return (
+    <div className="mt-3.5">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={isOpen}
+        className="inline-flex items-center gap-1.5 rounded-[10px] border-[1.5px] border-dashed border-brand bg-white px-3.5 py-2 text-xs font-bold text-brand"
+      >
+        <i className="ti ti-bulb text-sm" aria-hidden="true" />
+        {isOpen ? '보완 포인트 숨기기' : '보완 포인트 보기'}
+      </button>
+      {isOpen && (
+        <div className="mt-2.5 rounded-2xl border-[1.5px] border-stroke bg-canvas px-4 py-3.5">
+          <div className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-brand">
+            <i className="ti ti-bulb text-sm" aria-hidden="true" />
+            이렇게 다듬어 보면 좋아요
+          </div>
+          {isLoading && <p className="m-0 text-xs leading-relaxed text-muted">보완 포인트를 준비하고 있어요.</p>}
+          {!isLoading && error && (
+            <p role="alert" className="m-0 text-xs leading-relaxed text-red-500">
+              {error}
+            </p>
+          )}
+          {!isLoading && keywords && improvements && (
+            <div className="flex flex-col gap-3">
+              <div>
+                <div className="mb-1.5 text-[11px] font-bold text-muted">넣으면 좋은 키워드</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {keywords.map((keyword) => (
+                    <span
+                      key={keyword}
+                      className="rounded-full bg-card px-2.5 py-1 text-[11px] font-semibold text-brand"
+                    >
+                      {keyword}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="mb-1.5 text-[11px] font-bold text-muted">수정·보완하면 좋은 점</div>
+                <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+                  {improvements.map((item) => (
+                    <li key={item} className="flex gap-2 text-xs leading-relaxed text-[#3A3355]">
+                      <span className="mt-[5px] h-1.5 w-1.5 flex-shrink-0 rounded-full bg-brand" aria-hidden="true" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ResultHeader({ onMyPage }: { onMyPage?: () => void }) {
@@ -368,6 +455,9 @@ export default function InterviewResult() {
                     <i className="ti ti-sparkles mt-0.5 text-sm text-brand" aria-hidden="true" />
                     <p className="m-0 text-[13px] leading-relaxed text-[#3A3355]">{feedback}</p>
                   </div>
+                )}
+                {sessionId != null && (
+                  <ResultAnswerCoach sessionId={sessionId} questionId={question.questionId} />
                 )}
               </div>
             );

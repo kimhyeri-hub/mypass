@@ -94,6 +94,7 @@ public class AiInterviewService {
     /**
      * 이미 만들어진 질문의 모범답안 힌트만 생성한다.
      * 질문 생성, 꼬리질문 판단, 평가와 분리된 호출이라 그 응답 형식은 바꾸지 않는다.
+     * 면접 진행 중 "답변 힌트 보기"에서 쓴다. 결과지의 보완 가이드와는 별개다.
      */
     public String generateAnswerHint(
             String projectContext,
@@ -113,6 +114,30 @@ public class AiInterviewService {
         }
         return raw.trim();
     }
+
+    /**
+     * 결과지용 답변 보완 가이드. 모범답안 문장을 쓰지 않고,
+     * 사용자가 스스로 다듬을 수 있게 키워드와 짧은 보완 포인트만 만든다.
+     */
+    public AnswerCoachTips generateAnswerCoach(
+            String projectContext,
+            JobRole jobRole,
+            String questionText,
+            boolean intro,
+            String parentQuestionText,
+            String userAnswerText
+    ) {
+        if (questionText == null || questionText.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "보완 가이드를 만들 질문이 없습니다.");
+        }
+
+        String raw = aiService.generateQuestion(buildAnswerCoachPrompt(
+                projectContext, jobRole, questionText, intro, parentQuestionText, userAnswerText));
+        return parseAnswerCoachTips(raw);
+    }
+
+    /** 결과지 보완 가이드 파싱 결과. */
+    public record AnswerCoachTips(List<String> keywords, List<String> improvements) {}
 
     /**
      * 면접 세션에서 실제로 나온 질문과 최종 답변 전체를 근거로 AI 최종 평가를 생성한다.
@@ -289,6 +314,7 @@ public class AiInterviewService {
                 - 자기소개(INTRO)이면 자료에 있는 프로젝트, 담당 역할, 기술만으로 짧은 자기소개 예시를 작성하세요.
                 - 꼬리질문(FOLLOW_UP)이면 [현재 질문]에 답하되, 자료에 없는 세부 구현은 보충하지 마세요.
                 - 새 주제 질문을 포함한 프로젝트 질문도 같은 근거 규칙을 적용하세요.
+                - 핵심만 4~5문장으로 짧게 작성하세요. 서론, 인사, 반복 설명은 넣지 마세요.
                 - 모범답안 본문만 작성하세요. 제목, 머리말, 마크다운 코드블록은 붙이지 마세요.
                 """.formatted(
                         contextOrPlaceholder(projectContext),
@@ -296,6 +322,65 @@ public class AiInterviewService {
                         questionKind,
                         followUp ? parentQuestionText.trim() : "(없음)",
                         questionText.trim());
+    }
+
+    private String buildAnswerCoachPrompt(
+            String projectContext,
+            JobRole jobRole,
+            String questionText,
+            boolean intro,
+            String parentQuestionText,
+            String userAnswerText
+    ) {
+        boolean followUp = parentQuestionText != null && !parentQuestionText.isBlank();
+        String questionKind = intro ? "자기소개(INTRO)" : followUp ? "꼬리질문(FOLLOW_UP)" : "프로젝트 질문";
+        String answer = (userAnswerText == null || userAnswerText.isBlank()) ? "(답변 없음)" : userAnswerText.trim();
+        return """
+                당신은 개발자 기술면접 코치입니다.
+                지원자가 스스로 답변을 다듬을 수 있도록, 모범답안 문장을 쓰지 말고 키워드와 짧은 보완 포인트만 주세요.
+
+                [프로젝트 자료]
+                %s
+
+                [면접 설정]
+                %s
+
+                [질문 유형]
+                %s
+
+                [앞선 질문]
+                %s
+
+                [현재 질문]
+                %s
+
+                [지원자의 답변]
+                %s
+
+                근거 규칙:
+                - [프로젝트 자료]와 [지원자의 답변]에 실제로 나온 내용만 근거로 쓰세요.
+                - 자료에 없는 경험, 성과, 수치, 기술을 새로 지어내지 마세요.
+                - 지원자가 말하지 않은 내용을 사실처럼 단정하지 마세요.
+                - 점수를 매기거나 평가 문장("부족합니다")처럼 단정하지 마세요.
+
+                작성 규칙:
+                - 완전한 모범답안, 예시 답변 문단, 인용 형태의 긴 답변을 쓰지 마세요.
+                - keywords는 답변에 넣으면 좋은 핵심 단어/짧은 3~5개입니다. 단어나 짧은 구만 쓰세요.
+                - improvements는 사용자가 스스로 고쳐 볼 수 있는 짧은 2~4개입니다.
+                - improvements는 "~한 부분을 추가하면 좋아요", "~를 더 분명히 말하면 좋아요", "~ 순서로 말하면 좋아요"처럼 짧은 제안 문장으로 쓰세요.
+                - 자기소개(INTRO)이면 역할, 프로젝트, 기술, 기여처럼 넣으면 좋은 요소를 키워드/보완점으로 안내하세요.
+                - 꼬리질문이면 현재 질문에서 빠진 확인 포인트만 짧게 안내하세요.
+                - 답변이 없으면 질문 유형에 맞춰 기본적으로 넣으면 좋은 키워드와 보완점만 안내하세요.
+
+                반드시 아래 JSON 형식으로만 응답하세요. 그 외의 설명, 인사말, 마크다운 코드블록은 포함하지 마세요.
+                {"keywords": ["키워드1", "키워드2"], "improvements": ["보완 포인트1", "보완 포인트2"]}
+                """.formatted(
+                        contextOrPlaceholder(projectContext),
+                        buildInterviewSettingsBlock(jobRole, null),
+                        questionKind,
+                        followUp ? parentQuestionText.trim() : "(없음)",
+                        questionText.trim(),
+                        answer);
     }
 
     private String buildEvaluationPrompt(String projectContext, List<EvaluationItem> items) {
@@ -443,6 +528,43 @@ public class AiInterviewService {
         return sb.toString().trim();
     }
 
+    private AnswerCoachTips parseAnswerCoachTips(String raw) {
+        if (raw == null || raw.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI가 빈 응답을 반환했습니다. 잠시 후 다시 시도해주세요.");
+        }
+
+        RawCoach parsed;
+        try {
+            parsed = objectMapper.readValue(stripCodeFence(raw), RawCoach.class);
+        } catch (JsonProcessingException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI 보완 가이드 응답을 해석하지 못했습니다. 잠시 후 다시 시도해주세요.");
+        }
+
+        List<String> keywords = cleanCoachItems(parsed.keywords(), 5);
+        List<String> improvements = cleanCoachItems(parsed.improvements(), 4);
+        if (keywords.isEmpty() || improvements.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI 보완 가이드 응답 형식이 올바르지 않습니다.");
+        }
+        return new AnswerCoachTips(keywords, improvements);
+    }
+
+    private List<String> cleanCoachItems(List<String> items, int max) {
+        if (items == null || items.isEmpty()) {
+            return List.of();
+        }
+        List<String> cleaned = new ArrayList<>();
+        for (String item : items) {
+            if (item == null || item.isBlank()) {
+                continue;
+            }
+            cleaned.add(item.trim());
+            if (cleaned.size() >= max) {
+                break;
+            }
+        }
+        return cleaned;
+    }
+
     private NextQuestionDecision parseNextQuestionDecision(String raw) {
         if (raw == null || raw.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI가 빈 응답을 반환했습니다. 잠시 후 다시 시도해주세요.");
@@ -526,6 +648,9 @@ public class AiInterviewService {
     }
 
     private record RawDecision(String type, String question) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record RawCoach(List<String> keywords, List<String> improvements) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     private record RawEvaluation(

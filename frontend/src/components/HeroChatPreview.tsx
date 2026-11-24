@@ -87,7 +87,7 @@ export default function HeroChatPreview() {
               className={`mb-3 max-w-[88%] animate-rise-fast rounded-2xl px-[15px] py-3 text-sm leading-relaxed ${
                 isAi
                   ? 'rounded-bl-[4px] bg-card text-ink'
-                  : 'ml-auto rounded-br-[4px] bg-brand text-white'
+                  : 'ml-auto rounded-br-[4px] bg-[#9079ED] text-white'
               }`}
             >
               <div className={`mb-[3px] text-[11px] font-bold ${isAi ? 'text-brand' : 'text-[#D9CFFF]'}`}>

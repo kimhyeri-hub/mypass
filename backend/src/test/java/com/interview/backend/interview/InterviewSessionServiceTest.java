@@ -1002,6 +1002,51 @@ class InterviewSessionServiceTest {
     }
 
     @Test
+    void answerHintRejectsCompletedSession() {
+        InterviewSession session = session(1L, 100L, 5L);
+        session.setStatus(SessionStatus.COMPLETED);
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+
+        assertThatThrownBy(() -> sessionService().generateAnswerHint("a@example.com", 5L, 8L))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(ex -> ((ResponseStatusException) ex).getStatusCode())
+                .isEqualTo(org.springframework.http.HttpStatus.CONFLICT);
+        verify(aiService, never()).generateQuestion(any());
+    }
+
+    @Test
+    void answerCoachWorksForCompletedSession() {
+        InterviewSession session = session(1L, 100L, 5L);
+        session.setStatus(SessionStatus.COMPLETED);
+        Question question = question(8L, 5L, "DB는 무엇을 썼나요?");
+
+        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(user(1L, "a@example.com")));
+        when(sessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(questionRepository.findById(8L)).thenReturn(Optional.of(question));
+        when(answerRepository.findByQuestionId(8L)).thenReturn(List.of(finalAnswer(30L, 8L, "MariaDB를 썼어요.")));
+        when(projectRepository.findById(100L)).thenReturn(Optional.of(yaksookProject("설명", "MariaDB", "백엔드")));
+        when(projectFileRepository.findByProjectId(100L)).thenReturn(List.of());
+        when(aiService.generateQuestion(any())).thenReturn(
+                "{\"keywords\":[\"MariaDB\",\"선택 이유\"],\"improvements\":[\"DB 선택 이유를 한 문장 더 말하면 좋아요\",\"인덱스나 스키마를 짧게 보완하면 좋아요\"]}");
+
+        var response = sessionService().generateAnswerCoach("a@example.com", 5L, 8L);
+
+        assertThat(response.keywords()).containsExactly("MariaDB", "선택 이유");
+        assertThat(response.improvements()).containsExactly(
+                "DB 선택 이유를 한 문장 더 말하면 좋아요",
+                "인덱스나 스키마를 짧게 보완하면 좋아요");
+        verify(aiService).generateQuestion(argThat(prompt ->
+                prompt.contains("모범답안 문장을 쓰지 말고")
+                        && prompt.contains("MariaDB를 썼어요.")
+                        && prompt.contains("keywords")));
+        verify(questionRepository, never()).save(any());
+        verify(answerRepository, never()).save(any());
+        verify(sessionRepository, never()).save(any());
+    }
+
+    @Test
     void answerHintPassesParentQuestionForFollowUp() {
         InterviewSession session = session(1L, 100L, 5L);
         Question parent = question(10L, 5L, "DB는 무엇을 썼나요?");
